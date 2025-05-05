@@ -1,15 +1,50 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.github.koha26.aemvltintellijplugin</id>
-    <name>aem-vlt-intellij-plugin</name>
-    <vendor>koha26</vendor>
+    <id>com.kdiachenko.aem-vlt-tool</id>
+    <name>AEM VLT Tool</name>
+    <vendor email="konstantyn.diachenko@gmail.com"
+            url="https://github.com/koha26/aem-vlt-intellij-plugin">
+        Kostiantyn Diachenko
+    </vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.koha26.aemvltintellijplugin.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.koha26.aemvltintellijplugin.startup.MyProjectActivity" />
+        <!-- Add application settings -->
+        <applicationConfigurable
+                instance="com.kdiachenko.aem.filevault.settings.AEMServerConfigurable"
+                id="com.aem.filevault.settings.AEMServerConfigurable"
+                displayName="AEM FileVault Settings"/>
+
+        <applicationService
+                serviceImplementation="com.kdiachenko.aem.filevault.settings.AEMServerSettings"/>
+
+        <!-- Notification group -->
+        <notificationGroup id="AEM FileVault Notifications"
+                           displayType="BALLOON"
+                           isLogByDefault="true"/>
     </extensions>
+
+    <actions>
+        <!-- AEM FileVault action group -->
+        <group id="AEMFileVault.ActionGroup"
+               text="AEM FileVault"
+               description="AEM FileVault Operations"
+               popup="true">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="ProjectViewPopupMenuRefactoringGroup"/>
+            <separator/>
+            <action id="AEMFileVault.PullAction"
+                    class="com.kdiachenko.aem.filevault.actions.PullAction"
+                    text="Pull from AEM"
+                    description="Pull content from AEM repository"/>
+            <action id="AEMFileVault.PushAction"
+                    class="com.kdiachenko.aem.filevault.actions.PushAction"
+                    text="Push to AEM"
+                    description="Push content to AEM repository"/>
+            <separator/>
+        </group>
+    </actions>
 </idea-plugin>
