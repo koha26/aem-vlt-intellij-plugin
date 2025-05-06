@@ -1,17 +1,17 @@
-package com.kdiachenko.aem.filevault.service.impl
+package com.kdiachenko.aem.filevault.integration.service.impl
 
 import com.intellij.openapi.diagnostic.Logger
-import com.kdiachenko.aem.filevault.service.FileChangeTracker
-import com.kdiachenko.aem.filevault.service.FileSystemService
-import com.kdiachenko.aem.filevault.service.dto.OperationAction
+import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
+import com.kdiachenko.aem.filevault.integration.service.IFileSystemService
+import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import java.io.IOException
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
 import kotlin.io.path.createTempDirectory
 
-class FileSystemServiceImpl : FileSystemService {
-    private val logger = Logger.getInstance(FileSystemServiceImpl::class.java)
+class FileSystemService : IFileSystemService {
+    private val logger = Logger.getInstance(FileSystemService::class.java)
 
     override fun createTempDirectory(): Path {
         return createTempDirectory("aem-filevault-pull-${UUID.randomUUID()}")
@@ -83,7 +83,7 @@ class FileSystemServiceImpl : FileSystemService {
                         Files.copy(file, targetFile, StandardCopyOption.REPLACE_EXISTING)
                         tracker.addChange(OperationAction.UPDATED, targetFile.toString(), "Content changed")
                     } else {
-                        tracker.addChange(OperationAction.NOT_TOUCHED, targetFile.toString(), "Content unchanged")
+                        tracker.addChange(OperationAction.NOTHING_CHANGED, targetFile.toString(), "Content unchanged")
                     }
                 }
                 return FileVisitResult.CONTINUE

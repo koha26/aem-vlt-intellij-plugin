@@ -1,7 +1,7 @@
-package com.kdiachenko.aem.filevault.factory
+package com.kdiachenko.aem.filevault.integration.factory
 
 import com.kdiachenko.aem.filevault.model.AEMServer
-import com.kdiachenko.aem.filevault.service.CustomizedVaultFsApp
+import com.kdiachenko.aem.filevault.integration.CustomizedVaultFsApp
 
 /**
  * Factory for creating VaultFsApp instances

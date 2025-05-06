@@ -16,6 +16,10 @@ import java.io.File
  */
 abstract class BaseAction : AnAction() {
 
+    override fun getActionUpdateThread(): ActionUpdateThread {
+        return ActionUpdateThread.BGT
+    }
+
     override fun update(e: AnActionEvent) {
         val project = e.project
         val virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE)
@@ -25,7 +29,7 @@ abstract class BaseAction : AnAction() {
     }
 
     /**
-     * Get selected server for operation
+     * Get a selected server for operation
      */
     protected fun getSelectedServer(project: Project): AEMServer? {
         val settings = AEMServerSettings.getInstance()
@@ -40,18 +44,15 @@ abstract class BaseAction : AnAction() {
             return null
         }
 
-        // If there's only one server, use it
         if (servers.size == 1) {
             return servers[0]
         }
 
-        // Try to find the default server
         val defaultServer = settings.getDefaultServer()
         if (defaultServer != null) {
             return defaultServer
         }
 
-        // If no default, let the user choose
         val serverNames = servers.map { it.name }.toTypedArray()
         val selection = Messages.showChooseDialog(
             project,
@@ -77,9 +78,5 @@ abstract class BaseAction : AnAction() {
      */
     protected fun virtualToIoFile(virtualFile: VirtualFile): File {
         return File(virtualFile.path)
-    }
-
-    override fun getActionUpdateThread(): ActionUpdateThread {
-        return ActionUpdateThread.BGT
     }
 }

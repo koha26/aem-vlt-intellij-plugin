@@ -1,4 +1,4 @@
-package com.kdiachenko.aem.filevault.service.dto
+package com.kdiachenko.aem.filevault.integration.dto
 
 /**
  * Detailed result of a FileVault operation

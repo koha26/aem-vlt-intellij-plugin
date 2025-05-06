@@ -1,4 +1,4 @@
-package com.kdiachenko.aem.filevault.service
+package com.kdiachenko.aem.filevault.integration
 
 import com.kdiachenko.aem.filevault.model.AEMServer
 import org.apache.jackrabbit.vault.cli.VaultFsApp

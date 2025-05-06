@@ -1,15 +1,13 @@
-package com.kdiachenko.aem.filevault.service.impl
+package com.kdiachenko.aem.filevault.integration.service.impl
 
-import com.intellij.openapi.diagnostic.Logger
-import com.kdiachenko.aem.filevault.service.MetaInfService
+import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
 import java.nio.file.Files
 import java.nio.file.Path
 
 /**
  * Implementation of MetaInfService
  */
-class MetaInfServiceImpl : MetaInfService {
-    private val logger = Logger.getInstance(MetaInfServiceImpl::class.java)
+class MetaInfService : IMetaInfService {
 
     override fun createFilterXml(tmpDir: Path, jcrPath: String) {
         val metaInfDir = tmpDir.resolve("META-INF/vault")
@@ -25,6 +23,5 @@ class MetaInfServiceImpl : MetaInfService {
         """.trimIndent()
 
         Files.write(filterFile, filterContent.toByteArray())
-        logger.info("Created filter.xml at $filterFile with content:\n$filterContent")
     }
 }

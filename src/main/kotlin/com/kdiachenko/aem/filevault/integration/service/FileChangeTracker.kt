@@ -1,6 +1,6 @@
-package com.kdiachenko.aem.filevault.service
+package com.kdiachenko.aem.filevault.integration.service
 
-import com.kdiachenko.aem.filevault.service.dto.OperationAction
+import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 
 /**
  * Tracks file changes during directory operations
@@ -18,7 +18,7 @@ class FileChangeTracker {
  * Entry for an operation tracked by ProgressTrackerListener
  */
 data class OperationEntry(
-    val action: String,
+    val action: OperationAction,
     val path: String,
     val message: String? = null
 )

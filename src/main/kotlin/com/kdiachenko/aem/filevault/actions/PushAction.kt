@@ -2,18 +2,21 @@ package com.kdiachenko.aem.filevault.actions
 
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
-import com.kdiachenko.aem.filevault.service.FileVaultService
-import com.kdiachenko.aem.filevault.service.NotificationService
+import com.kdiachenko.aem.filevault.integration.service.impl.FileVaultService
+import com.kdiachenko.aem.filevault.integration.service.NotificationService
+import com.kdiachenko.aem.filevault.util.JcrPathUtil
 
 /**
  * Action to push content to AEM repository
  */
 class PushAction : BaseAction() {
+    private val logger = Logger.getInstance(FileVaultService::class.java)
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
@@ -23,8 +26,7 @@ class PushAction : BaseAction() {
         // Determine the JCR path
         val fileVaultService = FileVaultService.getInstance(project)
         val file = virtualToIoFile(virtualFile)
-        val remotePath = showPathDialog(project, fileVaultService.getJcrPath(file))
-            ?: return
+        val remotePath = JcrPathUtil.calculateJcrPath(file)
 
         // Confirm before pushing
         val confirmation = Messages.showYesNoDialog(
@@ -49,6 +51,9 @@ class PushAction : BaseAction() {
                 // Show notification
                 ApplicationManager.getApplication().invokeLater {
                     if (operationResult.success) {
+                        operationResult.entries.forEach {
+                            logger.info("$it")
+                        }
                         NotificationService.showInfo(project, "Push Successful", operationResult.message)
                     } else {
                         NotificationService.showError(project, "Push Failed", operationResult.message)

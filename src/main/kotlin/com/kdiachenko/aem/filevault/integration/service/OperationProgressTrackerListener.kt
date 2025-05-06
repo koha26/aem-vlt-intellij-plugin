@@ -1,5 +1,6 @@
-package com.kdiachenko.aem.filevault.service
+package com.kdiachenko.aem.filevault.integration.service
 
+import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import org.apache.jackrabbit.vault.fs.api.ProgressTrackerListener
 import org.apache.jackrabbit.vault.util.DefaultProgressListener
 
@@ -13,7 +14,7 @@ class OperationProgressTrackerListener : ProgressTrackerListener {
         path: String
     ) {
         default.onMessage(mode, action, path)
-        entries += OperationEntry(action, path)
+        entries += OperationEntry(OperationAction.fromString(action), path)
     }
 
     override fun onError(
@@ -22,7 +23,7 @@ class OperationProgressTrackerListener : ProgressTrackerListener {
         e: Exception
     ) {
         default.onError(mode, path, e)
-        entries += OperationEntry("E", path, e.message)
+        entries += OperationEntry(OperationAction.ERROR, path, e.message)
     }
 
 }
