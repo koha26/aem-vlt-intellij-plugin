@@ -4,9 +4,17 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
+import com.kdiachenko.aem.filevault.factory.VaultAppFactory
+import com.kdiachenko.aem.filevault.factory.impl.VaultAppFactoryImpl
 import com.kdiachenko.aem.filevault.model.AEMServer
+import com.kdiachenko.aem.filevault.service.dto.DetailedOperationResult
+import com.kdiachenko.aem.filevault.service.dto.OperationAction
+import com.kdiachenko.aem.filevault.service.dto.OperationEntryDetail
 import com.kdiachenko.aem.filevault.service.dto.VltBasicParams
+import com.kdiachenko.aem.filevault.service.impl.FileSystemServiceImpl
+import com.kdiachenko.aem.filevault.service.impl.MetaInfServiceImpl
 import com.kdiachenko.aem.filevault.util.JcrPathUtil
+import org.apache.jackrabbit.vault.cli.VaultFsApp
 import org.apache.jackrabbit.vault.fs.api.RepositoryAddress
 import org.apache.jackrabbit.vault.fs.io.*
 import java.io.File
@@ -21,7 +29,7 @@ import kotlin.io.path.absolutePathString
  * Service for handling FileVault operations (push/pull)
  */
 @Service(Service.Level.PROJECT)
-class FileVaultService() {
+class FileVaultService {
     private val logger = Logger.getInstance(FileVaultService::class.java)
 
     /**
@@ -45,47 +53,78 @@ class FileVaultService() {
     /**
      * Exports content from AEM to the local file system.
      *
-     * @param selectedPath Selected path in the project
-     * @param jcrPath JCR path to export (usually derived from selectedPath)
-     * @return CompletableFuture that completes when the export operation is done
+     * @param server AEM server to export from
+     * @param jcrPath JCR path to export
+     * @param localPath Local path to export to
+     * @param indicator Progress indicator
+     * @return CompletableFuture with detailed operation result
      */
     fun exportContent(
         server: AEMServer,
         jcrPath: String,
         localPath: File,
         indicator: ProgressIndicator
-    ): CompletableFuture<OperationResult> {
+    ): CompletableFuture<DetailedOperationResult> {
         return CompletableFuture.supplyAsync {
             try {
-                val tmpDir = createTempDirectory()
+                val tmpDir = fileSystemService.createTempDirectory()
                 logger.info("Created temporary directory at $tmpDir")
 
-                // Create META-INF directory and filter.xml file
-                createFilterXml(tmpDir, jcrPath)
+                // Update progress
+                indicator.progress("Preparing export operation...", 0.1)
 
+                // Create META-INF directory and filter.xml file
+                metaInfService.createFilterXml(tmpDir, jcrPath)
+
+                // Update progress
+                indicator.progress("Exporting content from AEM...", 0.2)
+
+                // Execute FileVault export
+                val progressTrackerListener = OperationProgressTrackerListener()
                 withPluginClassLoader {
-                    executeVaultExport(server, tmpDir)
+                    executeVaultExport(server, tmpDir, progressTrackerListener)
                 }
+
+                // Update progress
+                indicator.progress("Processing exported content...", 0.7)
 
                 // Copy exported content to the selected path
                 val exportedContentPath = tmpDir.resolve("$JCR_ROOT$jcrPath")
                 val targetPath = localPath.toPath()
 
+                val fileChangeTracker = FileChangeTracker()
+
                 if (Files.exists(exportedContentPath)) {
-                    copyDirectory(exportedContentPath, targetPath)
+                    fileSystemService.copyDirectory(exportedContentPath, targetPath, fileChangeTracker)
                     logger.info("Successfully copied content from $exportedContentPath to $targetPath")
                 } else {
                     logger.warn("No content was exported from $jcrPath")
                 }
 
-                // Clean up temp directory
-                deleteDirectory(tmpDir)
+                // Update progress
+                indicator.progress("Cleaning up...", 0.9)
 
-                return@supplyAsync OperationResult(true, "Successfully exported content to $localPath")
+                // Clean up temp directory
+                fileSystemService.deleteDirectory(tmpDir)
+
+                indicator.progress("", 1.0)
+
+                // Process the operation entries from both listener and file tracking
+                val result = createDetailedResult(
+                    true,
+                    "Successfully exported content to $localPath",
+                    progressTrackerListener.entries,
+                    fileChangeTracker.changes
+                )
+
+                return@supplyAsync result
             } catch (e: Exception) {
                 logger.error("Error during content export", e)
-                //throw RuntimeException("Failed to export content", e)
-                return@supplyAsync OperationResult(false, "Error: ${e.message}")
+                return@supplyAsync DetailedOperationResult(
+                    success = false,
+                    message = "Error: ${e.message}",
+                    entries = emptyList()
+                )
             }
         }
     }
@@ -93,24 +132,31 @@ class FileVaultService() {
     /**
      * Imports content from the local file system to AEM.
      *
-     * @param selectedPath Selected path in the project
-     * @param jcrPath JCR path to import to (usually derived from selectedPath)
-     * @return CompletableFuture that completes when the import operation is done
+     * @param server AEM server to import to
+     * @param jcrPath JCR path to import to
+     * @param localPath Local path to import from
+     * @param indicator Progress indicator
+     * @return CompletableFuture with detailed operation result
      */
     fun importContent(
         server: AEMServer,
         jcrPath: String,
         localPath: File,
         indicator: ProgressIndicator
-    ): CompletableFuture<OperationResult> {
+    ): CompletableFuture<DetailedOperationResult> {
         return CompletableFuture.supplyAsync {
             try {
-                val tmpDir = createTempDirectory()
-
+                val tmpDir = fileSystemService.createTempDirectory()
                 logger.info("Created temporary directory at $tmpDir")
 
+                // Update progress
+                indicator.progress( "Preparing import operation...", 0.1)
+
                 // Create META-INF directory and filter.xml file
-                createFilterXml(tmpDir, jcrPath)
+                metaInfService.createFilterXml(tmpDir, jcrPath)
+
+                // Update progress
+                indicator.progress( "Preparing content for import...", 0.3)
 
                 // Create JCR root directory structure
                 val jcrRootPath = tmpDir.resolve(JCR_ROOT)
@@ -119,77 +165,123 @@ class FileVaultService() {
 
                 // Copy content from selected path to temp directory
                 val sourcePath = localPath.toPath()
-                copyDirectory(sourcePath, contentPath)
+                val fileChangeTracker = FileChangeTracker()
+                fileSystemService.copyDirectory(sourcePath, contentPath, fileChangeTracker)
                 logger.info("Copied content from $sourcePath to $contentPath")
 
+                // Update progress
+                indicator.progress( "Importing content to AEM...", 0.5)
                 // Execute FileVault import command
+                val progressTrackerListener = OperationProgressTrackerListener()
                 withPluginClassLoader {
-                    executeVaultImport(server, tmpDir)
+                    executeVaultImport(server, tmpDir, progressTrackerListener)
                 }
 
+                // Update progress
+                indicator.progress( "Cleaning up...", 0.9)
+
                 // Clean up temp directory
-                deleteDirectory(tmpDir)
-                return@supplyAsync OperationResult(true, "Successfully imported content from $localPath")
+                fileSystemService.deleteDirectory(tmpDir)
+                indicator.progress( "", 1.0)
+
+                // Process the operation entries from both listener and file tracking
+                val result = createDetailedResult(
+                    true,
+                    "Successfully imported content from $localPath",
+                    progressTrackerListener.entries,
+                    fileChangeTracker.changes
+                )
+
+                return@supplyAsync result
             } catch (e: Exception) {
                 logger.error("Error during content import", e)
-                //throw RuntimeException("Failed to import content", e)
-                return@supplyAsync OperationResult(false, "Error: ${e.message}")
+                return@supplyAsync DetailedOperationResult(
+                    success = false,
+                    message = "Error: ${e.message}",
+                    entries = emptyList()
+                )
             }
         }
     }
 
     /**
-     * Creates a temporary directory for FileVault operations.
-     *
-     * @return Path to the created temporary directory
-     * @throws IOException If directory creation fails
+     * Creates a detailed operation result by combining information from FileVault operations
+     * and file change tracking.
      */
-    @Throws(IOException::class)
-    private fun createTempDirectory(): Path {
-        return kotlin.io.path.createTempDirectory("aem-filevault-pull-${UUID.randomUUID()}")
-    }
+    private fun createDetailedResult(
+        success: Boolean,
+        message: String,
+        listenerEntries: List<OperationEntry>,
+        fileChanges: List<FileChangeEntry>
+    ): DetailedOperationResult {
+        // Merge and process entries from both sources
+        val processedEntries = mutableListOf<OperationEntryDetail>()
 
-    /**
-     * Creates the META-INF/filter.xml file for FileVault operations.
-     *
-     * @param tmpDir Temporary directory
-     * @param jcrPath JCR path to include in the filter
-     * @throws IOException If file creation fails
-     */
-    @Throws(IOException::class)
-    private fun createFilterXml(tmpDir: Path, jcrPath: String) {
-        val metaInfDir = tmpDir.resolve(META_INF_PATH + "/vault")
-        Files.createDirectories(metaInfDir)
+        // Process listener entries first
+        listenerEntries.forEach { entry ->
+            val action = when {
+                entry.action.contains("A") -> OperationAction.ADDED
+                entry.action.contains("U") -> OperationAction.UPDATED
+                entry.action.contains("D") -> OperationAction.DELETED
+                else -> OperationAction.NOT_TOUCHED
+            }
 
-        val filterFile = metaInfDir.resolve(FILTER_FILE_NAME)
+            processedEntries.add(
+                OperationEntryDetail(
+                    action = action,
+                    path = entry.path,
+                    message = entry.message
+                )
+            )
+        }
 
-        val filterContent = """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <workspaceFilter version="1.0">
-                <filter root="$jcrPath"/>
-            </workspaceFilter>
-        """.trimIndent()
+        // Add file change entries that aren't already covered
+        fileChanges.forEach { change ->
+            val existingEntry = processedEntries.find { it.path == change.path }
+            if (existingEntry == null) {
+                processedEntries.add(
+                    OperationEntryDetail(
+                        action = change.action,
+                        path = change.path,
+                        message = change.reason
+                    )
+                )
+            }
+        }
 
-        Files.write(filterFile, filterContent.toByteArray())
-        logger.info("Created filter.xml at $filterFile with content:\n$filterContent")
+        return DetailedOperationResult(
+            success = success,
+            message = message,
+            entries = processedEntries
+        )
     }
 
     /**
      * Executes the FileVault export command.
      */
-    private fun executeVaultExport(server: AEMServer, tmpDir: Path) {
-        val vaultFsApp = CustomizedVaultFsApp(server)
+    private fun executeVaultExport(
+        server: AEMServer,
+        tmpDir: Path,
+        progressListener: OperationProgressTrackerListener
+    ) {
+        val vaultFsApp = vaultAppFactory.createVaultApp(server)
         vaultFsApp.init()
         doExport(
-            vaultFsApp, VltBasicParams(
+            vaultFsApp,
+            VltBasicParams(
                 jcrPath = "/",
                 localPath = tmpDir.absolutePathString(),
                 mountPoint = server.url + "/crx"
-            )
+            ),
+            progressListener
         )
     }
 
-    private fun doExport(app: CustomizedVaultFsApp, params: VltBasicParams) {
+    private fun doExport(
+        app: CustomizedVaultFsApp,
+        params: VltBasicParams,
+        progressListener: OperationProgressTrackerListener
+    ) {
         val verbose = true
         val jcrPath = params.jcrPath
         val localPath = params.localPath
@@ -211,22 +303,23 @@ class FileVaultService() {
                 return
             }
 
-            logger.info("Exporting ${vaultFile.path} to ${localFile.getCanonicalPath()}")
+            logger.info("Exporting ${vaultFile.path} to ${localFile.canonicalPath}")
             if (verbose) {
-                exporter.setVerbose(OperationProgressTrackerListener())
+                exporter.setVerbose(progressListener)
             }
             exporter.isNoMetaInf = true
             exporter.export(vaultFile)
             logger.info("Exporting done.")
-            exporter.exportInfo.entries.forEach {
-                logger.info("Exported: ${it.key} => ${it.value}")
-            }
         } finally {
             exporter?.close()
         }
     }
 
-    private fun doImport(app: CustomizedVaultFsApp, params: VltBasicParams) {
+    private fun doImport(
+        app: CustomizedVaultFsApp,
+        params: VltBasicParams,
+        progressListener: OperationProgressTrackerListener
+    ) {
         val verbose = true
         val jcrPath = params.jcrPath
         val localPath = params.localPath
@@ -235,7 +328,7 @@ class FileVaultService() {
         val vCtx = app.createVaultContext(localFile)
         vCtx.isVerbose = verbose
         val vaultFile = vCtx.getFileSystem(addr).getFile(jcrPath)
-        logger.info("Importing ${localFile.getCanonicalPath()} to ${vaultFile.path}")
+        logger.info("Importing ${localFile.canonicalPath} to ${vaultFile.path}")
 
         var archive: Archive? = null
         try {
@@ -246,7 +339,7 @@ class FileVaultService() {
             archive.open(false)
             val importer = Importer()
             if (verbose) {
-                importer.options.listener = OperationProgressTrackerListener()
+                importer.options.listener = progressListener
             }
             val session = vaultFile.fileSystem.aggregateManager.session
             importer.run(archive, session, vaultFile.path)
@@ -259,86 +352,43 @@ class FileVaultService() {
     /**
      * Executes the FileVault import command.
      */
-    private fun executeVaultImport(server: AEMServer, tmpDir: Path) {
-        val vaultFsApp = CustomizedVaultFsApp(server)
+    private fun executeVaultImport(
+        server: AEMServer,
+        tmpDir: Path,
+        progressListener: OperationProgressTrackerListener
+    ) {
+        val vaultFsApp = vaultAppFactory.createVaultApp(server)
         vaultFsApp.init()
         doImport(
-            vaultFsApp, VltBasicParams(
+            vaultFsApp,
+            VltBasicParams(
                 jcrPath = "/",
                 localPath = tmpDir.absolutePathString(),
                 mountPoint = server.url + "/crx"
-            )
+            ),
+            progressListener
         )
     }
 
     private fun withPluginClassLoader(callback: () -> Unit) {
         val currentThread = Thread.currentThread()
-        val originalClassLoader = currentThread.getContextClassLoader()
-        val pluginClassLoader = this.javaClass.getClassLoader()
+        val originalClassLoader = currentThread.contextClassLoader
+        val pluginClassLoader = this.javaClass.classLoader
         try {
-            currentThread.setContextClassLoader(pluginClassLoader)
+            currentThread.contextClassLoader = pluginClassLoader
             callback()
         } finally {
-            currentThread.setContextClassLoader(originalClassLoader)
+            currentThread.contextClassLoader = originalClassLoader
         }
     }
 
-    /**
-     * Copies a directory recursively.
-     *
-     * @param source Source directory
-     * @param target Target directory
-     * @throws IOException If copying fails
-     */
-    @Throws(IOException::class)
-    private fun copyDirectory(source: Path, target: Path) {
-        Files.walkFileTree(source, object : SimpleFileVisitor<Path>() {
-            @Throws(IOException::class)
-            override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
-                val targetDir = target.resolve(source.relativize(dir))
-                Files.createDirectories(targetDir)
-                return FileVisitResult.CONTINUE
-            }
+    // Inject dependencies
+    private val fileSystemService: FileSystemService = FileSystemServiceImpl()
+    private val metaInfService: MetaInfService = MetaInfServiceImpl()
+    private val vaultAppFactory: VaultAppFactory = VaultAppFactoryImpl()
 
-            @Throws(IOException::class)
-            override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
-                Files.copy(file, target.resolve(source.relativize(file)), StandardCopyOption.REPLACE_EXISTING)
-                return FileVisitResult.CONTINUE
-            }
-        })
+    private fun ProgressIndicator.progress(text: String, fraction: Double) {
+        this.text = text
+        this.fraction = fraction
     }
-
-    /**
-     * Deletes a directory recursively.
-     *
-     * @param directory Directory to delete
-     * @throws IOException If deletion fails
-     */
-    @Throws(IOException::class)
-    private fun deleteDirectory(directory: Path?) {
-        if (directory == null || !Files.exists(directory)) {
-            return
-        }
-
-        Files.walkFileTree(directory, object : SimpleFileVisitor<Path>() {
-            @Throws(IOException::class)
-            override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
-                Files.delete(file)
-                return FileVisitResult.CONTINUE
-            }
-
-            @Throws(IOException::class)
-            override fun postVisitDirectory(dir: Path, exc: IOException?): FileVisitResult {
-                Files.delete(dir)
-                return FileVisitResult.CONTINUE
-            }
-        })
-
-        logger.info("Deleted temporary directory: $directory")
-    }
-
-    /**
-     * Result of a FileVault operation
-     */
-    data class OperationResult(val success: Boolean, val message: String)
 }

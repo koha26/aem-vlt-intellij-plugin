@@ -33,7 +33,7 @@ class PullAction : BaseAction() {
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Pulling from AEM", false) {
             override fun run(indicator: ProgressIndicator) {
                 val completableFuture = fileVaultService.exportContent(server, remotePath, file, indicator)
-                var operationResult = completableFuture.get()
+                val operationResult = completableFuture.get()
 
                 // Show notification and refresh VFS
                 ApplicationManager.getApplication().invokeLater {
@@ -49,7 +49,7 @@ class PullAction : BaseAction() {
     }
 
     /**
-     * Show dialog to confirm or modify remote path
+     * Show a dialog to confirm or modify remote path
      */
     private fun showPathDialog(project: Project, suggestedPath: String): String? {
         return Messages.showInputDialog(

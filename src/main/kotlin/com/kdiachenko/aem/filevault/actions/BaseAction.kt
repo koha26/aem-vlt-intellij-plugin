@@ -1,5 +1,6 @@
 package com.kdiachenko.aem.filevault.actions
 
+import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.PlatformDataKeys
@@ -76,5 +77,9 @@ abstract class BaseAction : AnAction() {
      */
     protected fun virtualToIoFile(virtualFile: VirtualFile): File {
         return File(virtualFile.path)
+    }
+
+    override fun getActionUpdateThread(): ActionUpdateThread {
+        return ActionUpdateThread.BGT
     }
 }
