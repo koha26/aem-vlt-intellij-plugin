@@ -1,5 +1,6 @@
 package com.kdiachenko.aem.filevault.actions
 
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -12,11 +13,14 @@ import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.model.toDetailed
 import com.kdiachenko.aem.filevault.settings.AEMServerSettings
 import java.io.File
+import javax.swing.Icon
 
 /**
  * Base abstract class for FileVault actions
  */
 abstract class BaseAction : AnAction() {
+
+    abstract fun getIcon(): Icon
 
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.BGT
@@ -28,6 +32,7 @@ abstract class BaseAction : AnAction() {
 
         // Enable action only if a project is opened and a file is selected
         e.presentation.isEnabledAndVisible = project != null && virtualFile != null
+        e.presentation.icon = getIcon()
     }
 
     /**

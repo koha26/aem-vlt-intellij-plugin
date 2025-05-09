@@ -18,6 +18,8 @@ import com.kdiachenko.aem.filevault.util.JcrPathUtil
 class PushAction : BaseAction() {
     private val logger = Logger.getInstance(FileVaultService::class.java)
 
+    override fun getIcon() = com.intellij.icons.AllIcons.Vcs.Push
+
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         val virtualFile = getSelectedFile(e) ?: return

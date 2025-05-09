@@ -13,12 +13,15 @@ import com.intellij.openapi.vfs.VfsUtil
 import com.kdiachenko.aem.filevault.integration.service.impl.FileVaultService
 import com.kdiachenko.aem.filevault.integration.service.NotificationService
 import com.kdiachenko.aem.filevault.util.JcrPathUtil
+import javax.swing.Icon
 
 /**
  * Action to pull content from AEM repository
  */
 class PullAction : BaseAction() {
     private val logger = Logger.getInstance(FileVaultService::class.java)
+
+    override fun getIcon(): Icon = com.intellij.icons.AllIcons.Vcs.Fetch
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
