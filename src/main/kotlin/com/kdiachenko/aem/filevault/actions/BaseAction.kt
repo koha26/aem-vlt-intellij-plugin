@@ -7,7 +7,9 @@ import com.intellij.openapi.actionSystem.PlatformDataKeys
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.VirtualFile
-import com.kdiachenko.aem.filevault.model.AEMServer
+import com.kdiachenko.aem.filevault.model.AEMServerConfig
+import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
+import com.kdiachenko.aem.filevault.model.toDetailed
 import com.kdiachenko.aem.filevault.settings.AEMServerSettings
 import java.io.File
 
@@ -31,9 +33,9 @@ abstract class BaseAction : AnAction() {
     /**
      * Get a selected server for operation
      */
-    protected fun getSelectedServer(project: Project): AEMServer? {
-        val settings = AEMServerSettings.getInstance()
-        val servers = settings.servers
+    protected fun getSelectedServer(project: Project): DetailedAEMServerConfig? {
+        val settings = AEMServerSettings.getInstance().state
+        val servers = settings.configuredServers
 
         if (servers.isEmpty()) {
             Messages.showErrorDialog(
@@ -45,12 +47,12 @@ abstract class BaseAction : AnAction() {
         }
 
         if (servers.size == 1) {
-            return servers[0]
+            return servers[0].toDetailed()
         }
 
         val defaultServer = settings.getDefaultServer()
         if (defaultServer != null) {
-            return defaultServer
+            return defaultServer.toDetailed()
         }
 
         val serverNames = servers.map { it.name }.toTypedArray()
@@ -63,7 +65,7 @@ abstract class BaseAction : AnAction() {
             serverNames[0]
         )
 
-        return if (selection >= 0) servers[selection] else null
+        return if (selection >= 0) servers[selection].toDetailed() else null
     }
 
     /**

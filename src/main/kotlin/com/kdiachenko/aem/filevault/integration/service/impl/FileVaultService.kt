@@ -10,7 +10,8 @@ import com.kdiachenko.aem.filevault.integration.dto.VltOperationContext
 import com.kdiachenko.aem.filevault.integration.factory.VaultAppFactory
 import com.kdiachenko.aem.filevault.integration.factory.impl.VaultAppFactoryImpl
 import com.kdiachenko.aem.filevault.integration.service.*
-import com.kdiachenko.aem.filevault.model.AEMServer
+import com.kdiachenko.aem.filevault.model.AEMServerConfig
+import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import org.apache.jackrabbit.vault.fs.api.RepositoryAddress
 import org.apache.jackrabbit.vault.fs.io.*
 import java.io.File
@@ -38,14 +39,14 @@ class FileVaultService : IFileVaultService {
     /**
      * Exports content from AEM to the local file system.
      *
-     * @param server AEM server to export from
+     * @param serverConfig AEM server to export from
      * @param jcrPath JCR path to export
      * @param localPath Local path to export to
      * @param indicator Progress indicator
      * @return CompletableFuture with a detailed operation result
      */
     override fun exportContent(
-        server: AEMServer,
+        serverConfig: DetailedAEMServerConfig,
         jcrPath: String,
         localPath: File,
         indicator: ProgressIndicator
@@ -59,7 +60,7 @@ class FileVaultService : IFileVaultService {
             indicator.progress("Exporting content from AEM...", 0.2)
 
             val progressTrackerListener = OperationProgressTrackerListener()
-            executeVaultCommand(server, tmpDir, progressTrackerListener) {
+            executeVaultCommand(serverConfig, tmpDir, progressTrackerListener) {
                 doExport(it)
             }
             indicator.progress("Processing exported content...", 0.7)
@@ -109,7 +110,7 @@ class FileVaultService : IFileVaultService {
      * @return CompletableFuture with a detailed operation result
      */
     override fun importContent(
-        server: AEMServer,
+        serverConfig: DetailedAEMServerConfig,
         jcrPath: String,
         localPath: File,
         indicator: ProgressIndicator
@@ -133,7 +134,7 @@ class FileVaultService : IFileVaultService {
             indicator.progress("Importing content to AEM...", 0.5)
 
             val progressTrackerListener = OperationProgressTrackerListener()
-            executeVaultCommand(server, tmpDir, progressTrackerListener) {
+            executeVaultCommand(serverConfig, tmpDir, progressTrackerListener) {
                 doImport(it)
             }
             indicator.progress("Cleaning up...", 0.9)
@@ -269,20 +270,20 @@ class FileVaultService : IFileVaultService {
     }
 
     private fun executeVaultCommand(
-        server: AEMServer,
+        serverConfig: DetailedAEMServerConfig,
         tmpDir: Path,
         progressListener: OperationProgressTrackerListener,
         operation: (VltOperationContext) -> Unit
     ) {
         withPluginClassLoader {
-            val vaultFsApp = vaultAppFactory.createVaultApp(server)
+            val vaultFsApp = vaultAppFactory.createVaultApp(serverConfig)
             vaultFsApp.init()
             operation(
                 VltOperationContext(
                     vaultFsApp = vaultFsApp,
                     jcrPath = "/",
                     localPath = tmpDir.absolutePathString(),
-                    mountPointUrl = server.url + "/crx",
+                    mountPointUrl = serverConfig.url + "/crx",
                     progressListener = progressListener
                 )
             )

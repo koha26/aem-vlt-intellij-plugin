@@ -1,59 +1,80 @@
 package com.kdiachenko.aem.filevault.settings
 
-import com.intellij.openapi.components.PersistentStateComponent
-import com.intellij.openapi.components.State
-import com.intellij.openapi.components.Storage
-import com.intellij.openapi.components.service
-import com.intellij.util.xmlb.XmlSerializerUtil
-import com.kdiachenko.aem.filevault.model.AEMServer
+import com.intellij.openapi.components.*
+import com.kdiachenko.aem.filevault.model.AEMServerConfig
+import com.kdiachenko.aem.filevault.settings.service.CredentialsManager
 
 /**
  * Persistent storage for AEM server configurations
  */
 @State(
     name = "AEMServerSettings",
-    storages = [Storage("aem-filevault.xml")]
+    storages = [Storage("aem-vlt-intellij-plugin-settings.xml")]
 )
-class AEMServerSettings : PersistentStateComponent<AEMServerSettings> {
-    var servers: MutableList<AEMServer> = mutableListOf()
-
-    override fun getState(): AEMServerSettings = this
-
-    override fun loadState(state: AEMServerSettings) {
-        XmlSerializerUtil.copyBean(state, this)
-    }
-
-    fun addServer(server: AEMServer) {
-        // If this is set as default, unset others
-        if (server.isDefault) {
-            servers.forEach { it.isDefault = false }
-        }
-        servers.add(server)
-    }
-
-    fun updateServer(oldServer: AEMServer, newServer: AEMServer) {
-        val index = servers.indexOf(oldServer)
-        if (index >= 0) {
-            // If this is set as default, unset others
-            if (newServer.isDefault) {
-                servers.forEach { it.isDefault = false }
-            }
-            servers[index] = newServer
-        }
-    }
-
-    fun removeServer(server: AEMServer) {
-        servers.remove(server)
-    }
-
-    fun getDefaultServer(): AEMServer? {
-        return servers.find { it.isDefault }
-    }
+class AEMServerSettings : SimplePersistentStateComponent<AEMServerSettingsState>(AEMServerSettingsState()) {
 
     companion object {
         @JvmStatic
         fun getInstance(): AEMServerSettings {
             return service<AEMServerSettings>()
         }
+
+        fun state() = getInstance().state
+    }
+}
+
+class AEMServerSettingsState(
+    var configuredServers: MutableList<AEMServerConfig> = mutableListOf()
+) : BaseState() {
+
+    private fun addDefaultConfig() {
+        val defaultConfig = AEMServerConfig(
+            name = "AEM Default Author",
+            url = "http://localhost:4502",
+            isDefault = true
+        )
+        configuredServers.add(defaultConfig)
+        CredentialsManager.add(defaultConfig.id, "admin", "admin")
+    }
+
+    fun addServer(server: AEMServerConfig) {
+        if (server.isDefault) {
+            configuredServers.forEach { it.isDefault = false }
+        }
+        if (configuredServers.isEmpty()) {
+            server.isDefault = true
+        }
+        configuredServers.add(server)
+    }
+
+    fun updateServer(updatedConfig: AEMServerConfig) {
+        val index = configuredServers.indexOfFirst { it.id == updatedConfig.id }
+        if (index != -1) {
+            if (updatedConfig.isDefault) {
+                configuredServers.forEach { it.isDefault = false }
+            } else if (configuredServers.none { it.id != updatedConfig.id && it.isDefault }) {
+                updatedConfig.isDefault = true
+            }
+
+            configuredServers[index] = updatedConfig
+        }
+    }
+
+    fun removeServer(id: String) {
+        val config = configuredServers.find { it.id == id }
+        config?.let {
+            val wasDefault = it.isDefault
+            configuredServers.removeIf { cfg -> cfg.id == id }
+
+            if (wasDefault && configuredServers.isNotEmpty()) {
+                configuredServers.first().isDefault = true
+            }
+
+            CredentialsManager.remove(id)
+        }
+    }
+
+    fun getDefaultServer(): AEMServerConfig? {
+        return configuredServers.find { it.isDefault }
     }
 }
