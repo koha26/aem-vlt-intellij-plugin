@@ -8,11 +8,10 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VfsUtil
-import com.kdiachenko.aem.filevault.integration.service.impl.FileVaultService
+import com.intellij.openapi.vfs.VirtualFile
 import com.kdiachenko.aem.filevault.integration.service.NotificationService
-import com.kdiachenko.aem.filevault.util.JcrPathUtil
+import com.kdiachenko.aem.filevault.integration.service.impl.FileVaultService
 import javax.swing.Icon
 
 /**

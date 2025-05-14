@@ -15,15 +15,6 @@ class FileChangeTracker {
 }
 
 /**
- * Entry for an operation tracked by ProgressTrackerListener
- */
-data class OperationEntry(
-    val action: OperationAction,
-    val path: String,
-    val message: String? = null
-)
-
-/**
  * Entry for a file change
  */
 data class FileChangeEntry(

@@ -4,12 +4,13 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
 import com.kdiachenko.aem.filevault.integration.dto.DetailedOperationResult
 import com.kdiachenko.aem.filevault.integration.dto.OperationEntryDetail
+import com.kdiachenko.aem.filevault.integration.dto.VltFilter
 import com.kdiachenko.aem.filevault.integration.dto.VltOperationContext
-import com.kdiachenko.aem.filevault.integration.factory.VaultAppFactory
-import com.kdiachenko.aem.filevault.integration.factory.impl.VaultAppFactoryImpl
+import com.kdiachenko.aem.filevault.integration.factory.IVaultAppFactory
+import com.kdiachenko.aem.filevault.integration.factory.impl.VaultAppFactory
+import com.kdiachenko.aem.filevault.integration.listener.OperationProgressTrackerListener
 import com.kdiachenko.aem.filevault.integration.service.*
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.util.JcrPathUtil.normalizeJcrPath
@@ -54,35 +55,21 @@ class FileVaultService : IFileVaultService {
         val jcrPath = projectLocalFile.toJcrPath() ?: return@supplyAsync failed("Invalid JCR path.")
         val normalizedJcrPath = jcrPath.normalizeJcrPath()
         var tmpDir: Path? = null
+
         try {
-            tmpDir = fileSystemService.createTempDirectory()
             indicator.progress("Preparing export operation...", 0.1)
+            tmpDir = setupExportOperation(normalizedJcrPath)
 
             indicator.progress("Exporting content from AEM...", 0.2)
-            metaInfService.createFilterXml(tmpDir, Filter(normalizedJcrPath))
             val progressTrackerListener = OperationProgressTrackerListener()
             executeVaultCommand(serverConfig, tmpDir, progressTrackerListener) {
                 doExport(it)
             }
             indicator.progress("Processing exported content...", 0.7)
+            val fileChangeTracker = processExportedContent(tmpDir, projectLocalFile, jcrPath)
 
-            val targetPath = projectLocalFile.toPath()
-            val fileChangeTracker = FileChangeTracker()
-
-            val exportedContentPath = tmpDir.resolve("$JCR_ROOT$jcrPath")
-            if (Files.isDirectory(exportedContentPath) && Files.exists(exportedContentPath)) {
-                fileSystemService.copyDirectory(exportedContentPath, targetPath, fileChangeTracker)
-                logger.info("Successfully copied content from $exportedContentPath to $targetPath")
-            } else if (Files.isRegularFile(exportedContentPath) && Files.exists(exportedContentPath)) {
-                fileSystemService.copyFile(exportedContentPath, targetPath, fileChangeTracker)
-                logger.info("Successfully copied file from $exportedContentPath to $targetPath")
-            } else {
-                logger.warn("No content was exported from $jcrPath")
-            }
             indicator.progress("Cleaning up...", 0.9)
-
             val result = createDetailedResult(
-                true,
                 "Successfully exported content to $jcrPath",
                 progressTrackerListener.entries,
                 fileChangeTracker.changes
@@ -93,18 +80,49 @@ class FileVaultService : IFileVaultService {
             logger.error("Error during content export", e)
             return@supplyAsync failed("Error: ${e.message}")
         } finally {
-            tmpDir?.let {
-                fileSystemService.deleteDirectory(it)
-                indicator.progress("", 1.0)
+            cleanup(tmpDir)
+            indicator.progress("", 1.0)
+        }
+    }
+
+    private fun setupExportOperation(normalizedJcrPath: String): Path {
+        val tmpDir = fileSystemService.createTempDirectory()
+        metaInfService.createFilterXml(tmpDir, VltFilter(normalizedJcrPath))
+        return tmpDir
+    }
+
+    private fun processExportedContent(tmpDir: Path, projectLocalFile: File, jcrPath: String): FileChangeTracker {
+        val targetPath = projectLocalFile.toPath()
+        val fileChangeTracker = FileChangeTracker()
+        val exportedContentPath = tmpDir.resolve("$JCR_ROOT$jcrPath")
+
+        when {
+            Files.isDirectory(exportedContentPath) && Files.exists(exportedContentPath) -> {
+                fileSystemService.copyDirectory(exportedContentPath, targetPath, fileChangeTracker)
+                logger.info("Successfully copied content from $exportedContentPath to $targetPath")
             }
+
+            Files.isRegularFile(exportedContentPath) && Files.exists(exportedContentPath) -> {
+                fileSystemService.copyFile(exportedContentPath, targetPath, fileChangeTracker)
+                logger.info("Successfully copied file from $exportedContentPath to $targetPath")
+            }
+
+            else -> logger.warn("No content was exported from $jcrPath")
+        }
+
+        return fileChangeTracker
+    }
+
+    private fun cleanup(tmpDir: Path?) {
+        tmpDir?.let {
+            fileSystemService.deleteDirectory(it)
         }
     }
 
     /**
      * Imports content from the local file system to AEM.
      *
-     * @param server AEM server to import to
-     * @param jcrPath JCR path to import to
+     * @param serverConfig AEM server to import to
      * @param projectLocalFile Local path to import from
      * @param indicator Progress indicator
      * @return CompletableFuture with a detailed operation result
@@ -115,41 +133,23 @@ class FileVaultService : IFileVaultService {
         indicator: ProgressIndicator
     ): CompletableFuture<DetailedOperationResult> = CompletableFuture.supplyAsync {
         val jcrPath = projectLocalFile.toJcrPath() ?: return@supplyAsync failed("Invalid JCR path.")
-        val normalizedJcrPath = jcrPath.normalizeJcrPath()
-
         var tmpDir: Path? = null
+
         try {
-            tmpDir = fileSystemService.createTempDirectory()
             indicator.progress("Preparing import operation...", 0.1)
+            tmpDir = prepareImportDirectory(jcrPath, projectLocalFile)
 
-            val filter = createFilterForImport(projectLocalFile, jcrPath, normalizedJcrPath)
-            metaInfService.createFilterXml(tmpDir, filter)
             indicator.progress("Preparing content for import...", 0.3)
+            val fileChangeTracker = copyContentToImportDirectory(projectLocalFile, tmpDir, jcrPath)
 
-            val jcrRootPath = tmpDir.resolve(JCR_ROOT) // Create JCR root directory structure
-            val contentPath = jcrRootPath.resolve(jcrPath.substring(1))
-            Files.createDirectories(contentPath)
-
-            val sourcePath = projectLocalFile.toPath()
-            val fileChangeTracker = FileChangeTracker()
-
-            if (Files.isDirectory(sourcePath)) {
-                fileSystemService.copyDirectory(sourcePath, contentPath, fileChangeTracker)
-                logger.info("Copied directory from $sourcePath to $contentPath")
-            } else if (Files.isRegularFile(sourcePath)) {
-                fileSystemService.copyFile(sourcePath, contentPath, fileChangeTracker)
-                logger.info("Copied file from $sourcePath to $contentPath")
-            }
             indicator.progress("Importing content to AEM...", 0.5)
-
             val progressTrackerListener = OperationProgressTrackerListener()
             executeVaultCommand(serverConfig, tmpDir, progressTrackerListener) {
                 doImport(it)
             }
-            indicator.progress("Cleaning up...", 0.9)
 
+            indicator.progress("Cleaning up...", 0.9)
             val result = createDetailedResult(
-                true,
                 "Successfully imported content from $jcrPath",
                 progressTrackerListener.entries,
                 fileChangeTracker.changes
@@ -160,9 +160,43 @@ class FileVaultService : IFileVaultService {
             logger.error("Error during content import", e)
             return@supplyAsync failed("Error: ${e.message}")
         } finally {
-            tmpDir?.let {
-                fileSystemService.deleteDirectory(it)
-                indicator.progress("", 1.0)
+            cleanup(tmpDir)
+            indicator.progress("", 1.0)
+        }
+    }
+
+    private fun prepareImportDirectory(
+        jcrPath: String,
+        projectLocalFile: File
+    ): Path {
+        val tmpDir = fileSystemService.createTempDirectory()
+        val normalizedJcrPath = jcrPath.normalizeJcrPath()
+        val filter = createFilterForImport(projectLocalFile, jcrPath, normalizedJcrPath)
+        metaInfService.createFilterXml(tmpDir, filter)
+        return tmpDir
+    }
+
+    private fun copyContentToImportDirectory(
+        projectLocalFile: File,
+        tmpDir: Path,
+        jcrPath: String
+    ): FileChangeTracker {
+        val jcrRootPath = tmpDir.resolve(JCR_ROOT)
+        val contentPath = jcrRootPath.resolve(jcrPath.substring(1))
+        Files.createDirectories(contentPath)
+
+        val sourcePath = projectLocalFile.toPath()
+        return FileChangeTracker().apply {
+            when {
+                Files.isDirectory(sourcePath) -> {
+                    fileSystemService.copyDirectory(sourcePath, contentPath, this)
+                    logger.info("Copied directory from $sourcePath to $contentPath")
+                }
+
+                Files.isRegularFile(sourcePath) -> {
+                    fileSystemService.copyFile(sourcePath, contentPath, this)
+                    logger.info("Copied file from $sourcePath to $contentPath")
+                }
             }
         }
     }
@@ -171,14 +205,15 @@ class FileVaultService : IFileVaultService {
         projectLocalFile: File,
         jcrPath: String,
         normalizedJcrPath: String
-    ): Filter {
+    ): VltFilter {
         if (jcrPath.endsWith("/.content.xml")) {
             val closestResources = projectLocalFile.parentFile.listFiles { it.name != ".content.xml" }
-            val excludePatterns = closestResources.map { resource -> normalizedJcrPath + "/" + resource.name  + "(/.*)?"}
+            val excludePatterns =
+                closestResources.map { resource -> normalizedJcrPath + "/" + resource.name + "(/.*)?" }
 
-            return Filter(root = normalizedJcrPath, excludePatterns = excludePatterns)
+            return VltFilter(root = normalizedJcrPath, excludePatterns = excludePatterns)
         }
-        return Filter(normalizedJcrPath)
+        return VltFilter(normalizedJcrPath)
     }
 
 
@@ -187,9 +222,8 @@ class FileVaultService : IFileVaultService {
      * and file change tracking.
      */
     private fun createDetailedResult(
-        success: Boolean,
         message: String,
-        listenerEntries: List<OperationEntry>,
+        listenerEntries: List<OperationEntryDetail>,
         fileChanges: List<FileChangeEntry>
     ): DetailedOperationResult {
         val processedEntries = mutableListOf<OperationEntryDetail>()
@@ -218,7 +252,7 @@ class FileVaultService : IFileVaultService {
         }
 
         return DetailedOperationResult(
-            success = success,
+            success = true,
             message = message,
             entries = processedEntries
         )
@@ -263,7 +297,6 @@ class FileVaultService : IFileVaultService {
             exporter?.close()
         }
     }
-
 
     private fun doImport(context: VltOperationContext) {
         val verbose = true
@@ -328,9 +361,9 @@ class FileVaultService : IFileVaultService {
         }
     }
 
-    private val fileSystemService: IFileSystemService = FileSystemService()
-    private val metaInfService: IMetaInfService = MetaInfService()
-    private val vaultAppFactory: VaultAppFactory = VaultAppFactoryImpl()
+    private val fileSystemService: IFileSystemService = FileSystemService
+    private val metaInfService: IMetaInfService = MetaInfService
+    private val vaultAppFactory: IVaultAppFactory = VaultAppFactory
 
     private fun ProgressIndicator?.progress(text: String, fraction: Double) {
         this?.text = text

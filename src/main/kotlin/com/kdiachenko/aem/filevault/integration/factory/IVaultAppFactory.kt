@@ -6,6 +6,6 @@ import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 /**
  * Factory for creating VaultFsApp instances
  */
-interface VaultAppFactory {
+interface IVaultAppFactory {
     fun createVaultApp(server: DetailedAEMServerConfig): CustomizedVaultFsApp
 }

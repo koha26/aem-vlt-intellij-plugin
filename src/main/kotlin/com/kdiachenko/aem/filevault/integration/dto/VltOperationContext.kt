@@ -1,7 +1,7 @@
 package com.kdiachenko.aem.filevault.integration.dto
 
 import com.kdiachenko.aem.filevault.integration.CustomizedVaultFsApp
-import com.kdiachenko.aem.filevault.integration.service.OperationProgressTrackerListener
+import com.kdiachenko.aem.filevault.integration.listener.OperationProgressTrackerListener
 
 data class VltOperationContext(
     val vaultFsApp: CustomizedVaultFsApp,

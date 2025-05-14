@@ -10,11 +10,11 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
 import kotlin.io.path.createTempDirectory
 
-class FileSystemService : IFileSystemService {
+object FileSystemService : IFileSystemService {
     private val logger = Logger.getInstance(FileSystemService::class.java)
 
     override fun createTempDirectory(): Path {
-        return createTempDirectory("aem-filevault-pull-${UUID.randomUUID()}")
+        return createTempDirectory("aem-filevault-${UUID.randomUUID()}")
     }
 
     override fun copyDirectory(source: Path, target: Path, tracker: FileChangeTracker) {

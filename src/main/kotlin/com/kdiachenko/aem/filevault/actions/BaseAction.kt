@@ -30,7 +30,6 @@ abstract class BaseAction : AnAction() {
         val project = e.project
         val virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE)
 
-        // Enable action only if a project is opened and a file is selected
         e.presentation.isEnabledAndVisible = project != null && virtualFile != null
         e.presentation.icon = getIcon()
     }

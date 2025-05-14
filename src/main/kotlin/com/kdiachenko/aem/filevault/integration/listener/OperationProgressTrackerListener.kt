@@ -1,12 +1,14 @@
-package com.kdiachenko.aem.filevault.integration.service
+package com.kdiachenko.aem.filevault.integration.listener
 
 import com.kdiachenko.aem.filevault.integration.dto.OperationAction
+import com.kdiachenko.aem.filevault.integration.dto.OperationEntryDetail
 import org.apache.jackrabbit.vault.fs.api.ProgressTrackerListener
 import org.apache.jackrabbit.vault.util.DefaultProgressListener
+import kotlin.collections.plusAssign
 
 class OperationProgressTrackerListener : ProgressTrackerListener {
     private val default = DefaultProgressListener()
-    val entries = mutableListOf<OperationEntry>()
+    val entries = mutableListOf<OperationEntryDetail>()
 
     override fun onMessage(
         mode: ProgressTrackerListener.Mode?,
@@ -14,7 +16,7 @@ class OperationProgressTrackerListener : ProgressTrackerListener {
         path: String
     ) {
         default.onMessage(mode, action, path)
-        entries += OperationEntry(OperationAction.fromString(action), path)
+        entries += OperationEntryDetail(OperationAction.Companion.fromString(action), path)
     }
 
     override fun onError(
@@ -23,7 +25,7 @@ class OperationProgressTrackerListener : ProgressTrackerListener {
         e: Exception
     ) {
         default.onError(mode, path, e)
-        entries += OperationEntry(OperationAction.ERROR, path, e.message)
+        entries += OperationEntryDetail(OperationAction.ERROR, path, e.message)
     }
 
 }

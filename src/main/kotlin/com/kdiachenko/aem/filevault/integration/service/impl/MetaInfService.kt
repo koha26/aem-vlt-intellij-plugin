@@ -1,6 +1,6 @@
 package com.kdiachenko.aem.filevault.integration.service.impl
 
-import com.kdiachenko.aem.filevault.integration.service.Filter
+import com.kdiachenko.aem.filevault.integration.dto.VltFilter
 import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
 import java.nio.file.Files
 import java.nio.file.Path
@@ -8,39 +8,51 @@ import java.nio.file.Path
 /**
  * Implementation of MetaInfService
  */
-class MetaInfService : IMetaInfService {
+object MetaInfService : IMetaInfService {
 
-    override fun createFilterXml(tmpDir: Path, filter: Filter) {
+    override fun createFilterXml(tmpDir: Path, vltFilter: VltFilter) {
         val metaInfDir = tmpDir.resolve("META-INF/vault")
         Files.createDirectories(metaInfDir)
-
         val filterFile = metaInfDir.resolve("filter.xml")
 
-        val filterTagBuilder = StringBuilder()
-        filterTagBuilder.append("<filter root=\"${filter.root}\"")
-        if (filter.mode.isNotEmpty()) {
-            filterTagBuilder.append(" mode=\"${filter.mode}\"")
-        }
-        val hasChildTags = filter.excludePatterns.isNotEmpty() || filter.includePatterns.isNotEmpty()
-        if (hasChildTags) {
-            filterTagBuilder.append(">")
-            filter.excludePatterns.forEach { pattern ->
-                filterTagBuilder.append("<exclude pattern=\"$pattern\"/>")
-            }
-            filter.includePatterns.forEach { pattern ->
-                filterTagBuilder.append("<include pattern=\"$pattern\"/>")
-            }
-            filterTagBuilder.append("</filter>")
-        } else {
-            filterTagBuilder.append("/>")
-        }
-        val filterContent = """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <workspaceFilter version="1.0">
-                $filterTagBuilder
-            </workspaceFilter>
-        """.trimIndent()
-
+        val filterContent = generateFilterXmlContent(vltFilter)
         Files.write(filterFile, filterContent.toByteArray())
+    }
+
+    private fun generateFilterXmlContent(vltFilter: VltFilter): String {
+        val filterAttributes = buildString {
+            append("root=\"${vltFilter.root}\"")
+            if (vltFilter.mode.isNotEmpty()) {
+                append(" mode=\"${vltFilter.mode}\"")
+            }
+        }
+
+        val filterTag = buildFilterTag(vltFilter, filterAttributes)
+
+        return """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <workspaceFilter version="1.0">
+            $filterTag
+        </workspaceFilter>
+        """.trimIndent()
+    }
+
+    private fun buildFilterTag(vltFilter: VltFilter, filterAttributes: String): String {
+        val hasChildTags = vltFilter.excludePatterns.isNotEmpty() || vltFilter.includePatterns.isNotEmpty()
+
+        return if (!hasChildTags) {
+            "<filter $filterAttributes/>"
+        } else {
+            buildString {
+                append("<filter $filterAttributes>")
+                vltFilter.includePatterns.forEach { pattern ->
+                    append("<include pattern=\"$pattern\"/>")
+                }
+                vltFilter.excludePatterns.forEach { pattern ->
+                    append("<exclude pattern=\"$pattern\"/>")
+                }
+                append("</filter>")
+            }
+        }
     }
 }
