@@ -11,7 +11,7 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.kdiachenko.aem.filevault.integration.service.NotificationService
-import com.kdiachenko.aem.filevault.integration.service.impl.FileVaultService
+import com.kdiachenko.aem.filevault.integration.facade.impl.FileVaultFacade
 import javax.swing.Icon
 
 /**
@@ -27,7 +27,7 @@ class PullAction : BaseAction() {
         val virtualFile = getSelectedFile(e) ?: return
         val server = getSelectedServer(project) ?: return
 
-        val fileVaultService = FileVaultService.getInstance(project)
+        val fileVaultService = FileVaultFacade.getInstance(project)
         val file = virtualToIoFile(virtualFile)
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Pulling from AEM", false) {
@@ -40,6 +40,7 @@ class PullAction : BaseAction() {
                         refreshVirtualFile(virtualFile)
                         operationResult.entries.forEach {
                             logger.info("Pulled: $it")
+                            println("Pulled: $it")
                         }
                         NotificationService.showInfo(project, "Pull Successful", operationResult.message)
                     } else {

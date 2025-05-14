@@ -1,4 +1,4 @@
-package com.kdiachenko.aem.filevault.integration.service.impl
+package com.kdiachenko.aem.filevault.integration.facade.impl
 
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
@@ -8,15 +8,19 @@ import com.kdiachenko.aem.filevault.integration.dto.DetailedOperationResult
 import com.kdiachenko.aem.filevault.integration.dto.OperationEntryDetail
 import com.kdiachenko.aem.filevault.integration.dto.VltFilter
 import com.kdiachenko.aem.filevault.integration.dto.VltOperationContext
-import com.kdiachenko.aem.filevault.integration.factory.IVaultAppFactory
-import com.kdiachenko.aem.filevault.integration.factory.impl.VaultAppFactory
+import com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade
 import com.kdiachenko.aem.filevault.integration.listener.OperationProgressTrackerListener
-import com.kdiachenko.aem.filevault.integration.service.*
+import com.kdiachenko.aem.filevault.integration.service.FileChangeEntry
+import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
+import com.kdiachenko.aem.filevault.integration.service.IFileSystemService
+import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
+import com.kdiachenko.aem.filevault.integration.service.IVaultOperationService
+import com.kdiachenko.aem.filevault.integration.service.impl.FileSystemService
+import com.kdiachenko.aem.filevault.integration.service.impl.MetaInfService
+import com.kdiachenko.aem.filevault.integration.service.impl.VaultOperationService
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.util.JcrPathUtil.normalizeJcrPath
 import com.kdiachenko.aem.filevault.util.JcrPathUtil.toJcrPath
-import org.apache.jackrabbit.vault.fs.api.RepositoryAddress
-import org.apache.jackrabbit.vault.fs.io.*
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -27,15 +31,15 @@ import kotlin.io.path.absolutePathString
  * Service for handling FileVault operations (push/pull)
  */
 @Service(Service.Level.PROJECT)
-class FileVaultService : IFileVaultService {
-    private val logger = Logger.getInstance(FileVaultService::class.java)
+class FileVaultFacade : IFileVaultFacade {
+    private val logger = Logger.getInstance(FileVaultFacade::class.java)
 
     companion object {
         private const val JCR_ROOT = "jcr_root"
 
         @JvmStatic
-        fun getInstance(project: Project): FileVaultService {
-            return project.getService(FileVaultService::class.java)
+        fun getInstance(project: Project): FileVaultFacade {
+            return project.getService(FileVaultFacade::class.java)
         }
     }
 
@@ -62,9 +66,13 @@ class FileVaultService : IFileVaultService {
 
             indicator.progress("Exporting content from AEM...", 0.2)
             val progressTrackerListener = OperationProgressTrackerListener()
-            executeVaultCommand(serverConfig, tmpDir, progressTrackerListener) {
-                doExport(it)
-            }
+            vaultOperationService.export(
+                VltOperationContext(
+                    serverConfig = serverConfig,
+                    localAbsPath = tmpDir.absolutePathString(),
+                    progressListener = progressTrackerListener,
+                )
+            )
             indicator.progress("Processing exported content...", 0.7)
             val fileChangeTracker = processExportedContent(tmpDir, projectLocalFile, jcrPath)
 
@@ -144,9 +152,13 @@ class FileVaultService : IFileVaultService {
 
             indicator.progress("Importing content to AEM...", 0.5)
             val progressTrackerListener = OperationProgressTrackerListener()
-            executeVaultCommand(serverConfig, tmpDir, progressTrackerListener) {
-                doImport(it)
-            }
+            vaultOperationService.import(
+                VltOperationContext(
+                    serverConfig = serverConfig,
+                    localAbsPath = tmpDir.absolutePathString(),
+                    progressListener = progressTrackerListener,
+                )
+            )
 
             indicator.progress("Cleaning up...", 0.9)
             val result = createDetailedResult(
@@ -264,110 +276,13 @@ class FileVaultService : IFileVaultService {
         entries = emptyList()
     )
 
-    private fun doExport(context: VltOperationContext) {
-        val verbose = true
-        val jcrPath = context.jcrPath
-        val localPath = context.localPath
-        val addr = RepositoryAddress(context.mountPointUrl)
-        val localFile = context.vaultFsApp.getPlatformFile(localPath, false)
-
-        var exporter: AbstractExporter? = null
-        try {
-            if (!localFile.exists()) {
-                localFile.mkdirs()
-            }
-            exporter = PlatformExporter(localFile)
-            val vCtx = context.vaultFsApp.createVaultContext(localFile)
-
-            vCtx.isVerbose = verbose
-            val vaultFile = vCtx.getFileSystem(addr).getFile(jcrPath)
-            if (vaultFile == null) {
-                logger.error("Not such remote file: $jcrPath")
-                return
-            }
-
-            logger.info("Exporting ${vaultFile.path} to ${localFile.canonicalPath}")
-            if (verbose) {
-                exporter.setVerbose(context.progressListener)
-            }
-            exporter.isNoMetaInf = true
-            exporter.export(vaultFile)
-            logger.info("Exporting done.")
-        } finally {
-            exporter?.close()
-        }
-    }
-
-    private fun doImport(context: VltOperationContext) {
-        val verbose = true
-        val jcrPath = context.jcrPath
-        val localPath = context.localPath
-        val addr = RepositoryAddress(context.mountPointUrl)
-        val localFile = context.vaultFsApp.getPlatformFile(localPath, false)
-        val vCtx = context.vaultFsApp.createVaultContext(localFile)
-        vCtx.isVerbose = verbose
-        val vaultFile = vCtx.getFileSystem(addr).getFile(jcrPath)
-        logger.info("Importing ${localFile.canonicalPath} to ${vaultFile.path}")
-
-        var archive: Archive? = null
-        try {
-            if (!localFile.exists()) {
-                localFile.mkdirs()
-            }
-            archive = FileArchive(localFile)
-            archive.open(false)
-            val importer = Importer()
-            if (verbose) {
-                importer.options.listener = context.progressListener
-            }
-            val session = vaultFile.fileSystem.aggregateManager.session
-            importer.run(archive, session, vaultFile.path)
-            logger.info("Importing done.")
-        } finally {
-            archive?.close()
-        }
-    }
-
-    private fun executeVaultCommand(
-        serverConfig: DetailedAEMServerConfig,
-        tmpDir: Path,
-        progressListener: OperationProgressTrackerListener,
-        operation: (VltOperationContext) -> Unit
-    ) {
-        withPluginClassLoader {
-            val vaultFsApp = vaultAppFactory.createVaultApp(serverConfig)
-            vaultFsApp.init()
-            operation(
-                VltOperationContext(
-                    vaultFsApp = vaultFsApp,
-                    jcrPath = "/",
-                    localPath = tmpDir.absolutePathString(),
-                    mountPointUrl = serverConfig.url + "/crx",
-                    progressListener = progressListener
-                )
-            )
-        }
-    }
-
-    private fun withPluginClassLoader(callback: () -> Unit) {
-        val currentThread = Thread.currentThread()
-        val originalClassLoader = currentThread.contextClassLoader
-        val pluginClassLoader = this.javaClass.classLoader
-        try {
-            currentThread.contextClassLoader = pluginClassLoader
-            callback()
-        } finally {
-            currentThread.contextClassLoader = originalClassLoader
-        }
-    }
 
     private val fileSystemService: IFileSystemService = FileSystemService
     private val metaInfService: IMetaInfService = MetaInfService
-    private val vaultAppFactory: IVaultAppFactory = VaultAppFactory
+    private val vaultOperationService: IVaultOperationService = VaultOperationService
 
     private fun ProgressIndicator?.progress(text: String, fraction: Double) {
         this?.text = text
         this?.fraction = fraction
     }
 }
-

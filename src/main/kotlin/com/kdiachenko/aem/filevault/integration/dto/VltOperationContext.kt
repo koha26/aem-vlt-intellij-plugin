@@ -1,12 +1,11 @@
 package com.kdiachenko.aem.filevault.integration.dto
 
-import com.kdiachenko.aem.filevault.integration.CustomizedVaultFsApp
 import com.kdiachenko.aem.filevault.integration.listener.OperationProgressTrackerListener
+import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 
 data class VltOperationContext(
-    val vaultFsApp: CustomizedVaultFsApp,
-    val jcrPath: String,
-    val localPath: String,
-    val mountPointUrl: String,
+    val jcrPath: String = "/",
+    val localAbsPath: String,
+    val serverConfig: DetailedAEMServerConfig,
     val progressListener: OperationProgressTrackerListener? = null
 )

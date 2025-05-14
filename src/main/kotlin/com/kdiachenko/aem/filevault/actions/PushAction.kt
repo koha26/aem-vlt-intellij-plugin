@@ -8,9 +8,8 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
-import com.kdiachenko.aem.filevault.integration.service.impl.FileVaultService
+import com.kdiachenko.aem.filevault.integration.facade.impl.FileVaultFacade
 import com.kdiachenko.aem.filevault.integration.service.NotificationService
-import com.kdiachenko.aem.filevault.util.JcrPathUtil
 
 /**
  * Action to push content to AEM repository
@@ -25,7 +24,7 @@ class PushAction : BaseAction() {
         val virtualFile = getSelectedFile(e) ?: return
         val server = getSelectedServer(project) ?: return
 
-        val fileVaultService = FileVaultService.getInstance(project)
+        val fileVaultService = FileVaultFacade.getInstance(project)
         val file = virtualToIoFile(virtualFile)
 
         /*// Confirm before pushing
@@ -51,6 +50,7 @@ class PushAction : BaseAction() {
                     if (operationResult.success) {
                         operationResult.entries.forEach {
                             logger.info("Pushed: $it")
+                            println("Pushed: $it")
                         }
                         NotificationService.showInfo(project, "Push Successful", operationResult.message)
                     } else {
