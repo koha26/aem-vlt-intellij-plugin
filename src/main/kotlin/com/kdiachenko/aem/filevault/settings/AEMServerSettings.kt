@@ -47,31 +47,8 @@ class AEMServerSettingsState(
         configuredServers.add(server)
     }
 
-    fun updateServer(updatedConfig: AEMServerConfig) {
-        val index = configuredServers.indexOfFirst { it.id == updatedConfig.id }
-        if (index != -1) {
-            if (updatedConfig.isDefault) {
-                configuredServers.forEach { it.isDefault = false }
-            } else if (configuredServers.none { it.id != updatedConfig.id && it.isDefault }) {
-                updatedConfig.isDefault = true
-            }
-
-            configuredServers[index] = updatedConfig
-        }
-    }
-
-    fun removeServer(id: String) {
-        val config = configuredServers.find { it.id == id }
-        config?.let {
-            val wasDefault = it.isDefault
-            configuredServers.removeIf { cfg -> cfg.id == id }
-
-            if (wasDefault && configuredServers.isNotEmpty()) {
-                configuredServers.first().isDefault = true
-            }
-
-            CredentialsManager.remove(id)
-        }
+    fun clearConfiguredServers() {
+        configuredServers.clear()
     }
 
     fun getDefaultServer(): AEMServerConfig? {

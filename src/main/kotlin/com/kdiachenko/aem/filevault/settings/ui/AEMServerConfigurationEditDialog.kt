@@ -165,6 +165,7 @@ class AEMServerConfigurationEditDialog(
                         val message = rootCause.localizedMessage ?: rootCause.javaClass.simpleName
 
                         updateTestResult("Connection failed. Error: $message", true)
+                        okAction.enable()
                         testServerAction.enable()
                     }
                 }

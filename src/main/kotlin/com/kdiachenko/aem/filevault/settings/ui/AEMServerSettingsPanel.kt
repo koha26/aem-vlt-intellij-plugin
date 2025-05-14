@@ -7,20 +7,24 @@ import com.kdiachenko.aem.filevault.model.AEMServerConfig
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.model.toDetailed
 import com.kdiachenko.aem.filevault.settings.AEMServerSettings
-import com.kdiachenko.aem.filevault.settings.service.CredentialsManager
 import com.kdiachenko.aem.filevault.settings.SettingsPanel
-import java.util.UUID
+import com.kdiachenko.aem.filevault.settings.service.CredentialsManager
+import java.util.*
+import javax.swing.DefaultCellEditor
+import javax.swing.JCheckBox
 import javax.swing.JPanel
+import javax.swing.table.TableCellEditor
 
 class AEMServerSettingsPanel() : SettingsPanel {
-    private var initialConfigurations = state().configuredServers.toDetailed()
     private lateinit var tableModelEditor: TableModelEditor<DetailedAEMServerConfig>
+    private lateinit var initialDetailedConfigs: List<DetailedAEMServerConfig>
 
     override fun name(): String = "AEM FileVault Settings"
 
     override fun getPanel(): JPanel {
+        initialDetailedConfigs = state().configuredServers.toDetailed()
         tableModelEditor = TableModelEditor(
-            initialConfigurations.toMutableCopy(),
+            initialDetailedConfigs.toMutableCopy(),
             createColumnInfos(),
             AEMServerEditor(),
             "Configure AEM servers"
@@ -35,22 +39,23 @@ class AEMServerSettingsPanel() : SettingsPanel {
     }
 
     override fun save() {
-        initialConfigurations.forEach { CredentialsManager.remove(it.id) }
-
         val newAEMServers = tableModelEditor.apply()
+
         val newState = state()
+        newState.configuredServers.forEach { CredentialsManager.remove(it.id) }
+        newState.clearConfiguredServers()
         newAEMServers.forEach {
             CredentialsManager.add(it.id, it.username, it.password)
-            newState.configuredServers.add(AEMServerConfig(it.id, it.name, it.url))
+            newState.addServer(AEMServerConfig(it.id, it.name, it.url))
         }
 
         AEMServerSettings.Companion.getInstance().loadState(newState)
 
-        initialConfigurations = newState.configuredServers.toDetailed()
+        initialDetailedConfigs = newAEMServers.toMutableCopy()
     }
 
     override fun reset() {
-        tableModelEditor.reset(initialConfigurations)
+        tableModelEditor.reset(initialDetailedConfigs.toMutableCopy())
     }
 
     private fun List<DetailedAEMServerConfig>.toMutableCopy() =
