@@ -19,7 +19,7 @@ import javax.swing.Icon
  * Action to pull content from AEM repository
  */
 class PullAction : BaseAction() {
-    private val logger = Logger.getInstance(FileVaultService::class.java)
+    private val logger = Logger.getInstance(PullAction::class.java)
 
     override fun getIcon(): Icon = com.intellij.icons.AllIcons.Vcs.Fetch
 
@@ -28,23 +28,19 @@ class PullAction : BaseAction() {
         val virtualFile = getSelectedFile(e) ?: return
         val server = getSelectedServer(project) ?: return
 
-        // Determine the JCR path
         val fileVaultService = FileVaultService.getInstance(project)
         val file = virtualToIoFile(virtualFile)
-        val remotePath = JcrPathUtil.calculateJcrPath(file)
 
-        // Run the pull operation in background
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Pulling from AEM", false) {
             override fun run(indicator: ProgressIndicator) {
-                val completableFuture = fileVaultService.exportContent(server, remotePath, file, indicator)
+                val completableFuture = fileVaultService.exportContent(server, file, indicator)
                 val operationResult = completableFuture.get()
 
-                // Show notification and refresh VFS
                 ApplicationManager.getApplication().invokeLater {
                     if (operationResult.success) {
                         refreshVirtualFile(virtualFile)
                         operationResult.entries.forEach {
-                            logger.info("$it")
+                            logger.info("Pulled: $it")
                         }
                         NotificationService.showInfo(project, "Pull Successful", operationResult.message)
                     } else {

@@ -7,6 +7,35 @@ import java.io.File
  */
 object JcrPathUtil {
 
+    fun File.toJcrPath(): String? {
+        val absolutePath = this.absolutePath
+        if (absolutePath.indexOf("jcr_root") == -1) {
+            return null
+        }
+        val jcrPath = absolutePath.substring(absolutePath.indexOf("jcr_root") + "jcr_root".length)
+        if (jcrPath.isEmpty()) {
+            return "/"
+        }
+        return jcrPath.replace("\\", "/")
+    }
+
+    fun String.normalizeJcrPath(): String {
+        if (this.endsWith("/.content.xml")) {
+            return this.substring(0, this.length - 13)
+        }
+        if (this.endsWith(".xml") && isCqNamespacedFile(this)) {
+            val filter = this.replace(".xml", "")
+                .replace("_cq_", "cq:")
+            return filter
+        }
+        return this
+    }
+
+    fun isCqNamespacedFile(jcrPath: String): Boolean {
+        val name = jcrPath.substringAfterLast("/")
+        return name.startsWith("_cq_")
+    }
+
     /**
      * Calculate JCR path from a local file
      * Handles common AEM project structures

@@ -16,7 +16,7 @@ import com.kdiachenko.aem.filevault.util.JcrPathUtil
  * Action to push content to AEM repository
  */
 class PushAction : BaseAction() {
-    private val logger = Logger.getInstance(FileVaultService::class.java)
+    private val logger = Logger.getInstance(PushAction::class.java)
 
     override fun getIcon() = com.intellij.icons.AllIcons.Vcs.Push
 
@@ -25,12 +25,10 @@ class PushAction : BaseAction() {
         val virtualFile = getSelectedFile(e) ?: return
         val server = getSelectedServer(project) ?: return
 
-        // Determine the JCR path
         val fileVaultService = FileVaultService.getInstance(project)
         val file = virtualToIoFile(virtualFile)
-        val remotePath = JcrPathUtil.calculateJcrPath(file)
 
-        // Confirm before pushing
+        /*// Confirm before pushing
         val confirmation = Messages.showYesNoDialog(
             project,
             "Push ${file.name} to ${server.name} at path $remotePath?",
@@ -42,19 +40,17 @@ class PushAction : BaseAction() {
 
         if (confirmation != Messages.YES) {
             return
-        }
+        }*/
 
-        // Run the push operation in background
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Pushing to AEM", false) {
             override fun run(indicator: ProgressIndicator) {
-                val result = fileVaultService.importContent(server, remotePath, file, indicator)
-                var operationResult = result.get()
+                val result = fileVaultService.importContent(server, file, indicator)
+                val operationResult = result.get()
 
-                // Show notification
                 ApplicationManager.getApplication().invokeLater {
                     if (operationResult.success) {
                         operationResult.entries.forEach {
-                            logger.info("$it")
+                            logger.info("Pushed: $it")
                         }
                         NotificationService.showInfo(project, "Push Successful", operationResult.message)
                     } else {

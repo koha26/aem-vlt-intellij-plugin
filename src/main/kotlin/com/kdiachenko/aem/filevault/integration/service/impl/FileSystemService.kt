@@ -91,6 +91,15 @@ class FileSystemService : IFileSystemService {
         })
     }
 
+    override fun copyFile(source: Path, target: Path, tracker: FileChangeTracker) {
+        if (!Files.isSameFile(source, target)) {
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+            tracker.addChange(OperationAction.UPDATED, target.toString(), "Content changed")
+        } else {
+            tracker.addChange(OperationAction.NOTHING_CHANGED, target.toString(), "Content unchanged")
+        }
+    }
+
     override fun deleteDirectory(directory: Path?) {
         if (directory == null || !Files.exists(directory)) {
             return
