@@ -1,6 +1,5 @@
 package com.kdiachenko.aem.filevault.actions
 
-import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -8,7 +7,6 @@ import com.intellij.openapi.actionSystem.PlatformDataKeys
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.VirtualFile
-import com.kdiachenko.aem.filevault.model.AEMServerConfig
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.model.toDetailed
 import com.kdiachenko.aem.filevault.settings.AEMServerSettings

@@ -5,7 +5,7 @@ import com.intellij.util.ui.ColumnInfo
 import com.intellij.util.ui.table.TableModelEditor
 import com.kdiachenko.aem.filevault.model.AEMServerConfig
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
-import com.kdiachenko.aem.filevault.model.toDetailed
+import com.kdiachenko.aem.filevault.model.toLazyDetailed
 import com.kdiachenko.aem.filevault.settings.AEMServerSettings
 import com.kdiachenko.aem.filevault.settings.SettingsPanel
 import com.kdiachenko.aem.filevault.settings.service.CredentialsManager
@@ -13,6 +13,7 @@ import java.util.*
 import javax.swing.DefaultCellEditor
 import javax.swing.JCheckBox
 import javax.swing.JPanel
+import javax.swing.JTable
 import javax.swing.table.TableCellEditor
 
 class AEMServerSettingsPanel() : SettingsPanel {
@@ -22,13 +23,21 @@ class AEMServerSettingsPanel() : SettingsPanel {
     override fun name(): String = "AEM FileVault Settings"
 
     override fun getPanel(): JPanel {
-        initialDetailedConfigs = state().configuredServers.toDetailed()
+        initialDetailedConfigs = state().configuredServers.toLazyDetailed()
         tableModelEditor = TableModelEditor(
-            initialDetailedConfigs.toMutableCopy(),
+            initialDetailedConfigs,
             createColumnInfos(),
             AEMServerEditor(),
             "Configure AEM servers"
         )
+        /*tableModelEditor.model.addTableModelListener {
+            var event = it as TableModelEvent
+            var model = event.source as ListTableModel<*>
+            var config = model.getValueAt(event.firstRow, event.column) as DetailedAEMServerConfig
+            if (config.isDefault) {
+
+            }
+        }*/
         tableModelEditor.enabled(true)
         tableModelEditor.setShowGrid(false)
         return tableModelEditor.createComponent() as JPanel
@@ -66,6 +75,7 @@ class AEMServerSettingsPanel() : SettingsPanel {
     private fun createColumnInfos()
             : Array<ColumnInfo<DetailedAEMServerConfig, *>> {
         return arrayOf(
+            createCheckboxColumnInfo("Default"),
             createColumnInfo("Server Name") { it.name },
             createColumnInfo("URL") { it.url },
             createColumnInfo("Username") { it.username }
@@ -78,6 +88,23 @@ class AEMServerSettingsPanel() : SettingsPanel {
     ): ColumnInfo<DetailedAEMServerConfig, T> {
         return object : ColumnInfo<DetailedAEMServerConfig, T>(name) {
             override fun valueOf(config: DetailedAEMServerConfig): T = getter(config)
+        }
+    }
+
+    private fun createCheckboxColumnInfo(
+        name: String
+    ): TableModelEditor.EditableColumnInfo<DetailedAEMServerConfig, Boolean> {
+        return object : TableModelEditor.EditableColumnInfo<DetailedAEMServerConfig, Boolean>(name) {
+            override fun valueOf(config: DetailedAEMServerConfig): Boolean = config.isDefault
+            override fun getEditor(item: DetailedAEMServerConfig?): TableCellEditor? = DefaultCellEditor(JCheckBox())
+            override fun getColumnClass(): Class<Boolean> = Boolean::class.java
+
+            override fun setValue(
+                item: DetailedAEMServerConfig?,
+                value: Boolean?
+            ) = item?.isDefault = value ?: false
+
+            override fun getWidth(table: JTable?): Int = 1
         }
     }
 

@@ -23,12 +23,13 @@ class AEMServerConfigurable() : Configurable {
     override fun createComponent(): JComponent {
         settingsPanel = AEMServerSettingsPanel()
         return panel {
-            group("AEM Servers") {
-                row {
-                    cell(settingsPanel!!.getPanel())
-                        .align(Align.FILL)
-                        .resizableColumn()
-                }
+            row {
+                label("AEM Servers").bold()
+            }.rowComment("Use toolbar to manage AEM servers.")
+            row {
+                cell(settingsPanel!!.getPanel())
+                    .align(Align.FILL)
+                    .resizableColumn()
             }
         }
     }

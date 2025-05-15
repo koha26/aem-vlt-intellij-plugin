@@ -12,12 +12,26 @@ data class DetailedAEMServerConfig(
     var password: String = ""
 ) : AEMServerConfig(id, name, url, isDefault)
 
-fun AEMServerConfig.toDetailed(): DetailedAEMServerConfig {
-    val credentials = CredentialsManager.get(id)
-    return DetailedAEMServerConfig(id, name, url, isDefault,
-        credentials?.userName ?: "", credentials?.getPasswordAsString() ?: "")
+fun AEMServerConfig.toLazyDetailed(): DetailedAEMServerConfig {
+    val detailedAEMServerConfig = DetailedAEMServerConfig(
+        id, name, url, isDefault
+    )
+    CredentialsManager.getAsync(id).onSuccess {
+        detailedAEMServerConfig.username = it?.userName ?: ""
+        detailedAEMServerConfig.password = it?.getPasswordAsString() ?: ""
+    }
+    return detailedAEMServerConfig
 }
 
-fun List<AEMServerConfig>.toDetailed(): List<DetailedAEMServerConfig> {
-    return this.map { it.toDetailed() }
+fun AEMServerConfig.toDetailed(): DetailedAEMServerConfig {
+    val credentials = CredentialsManager.get(id)
+    val detailedAEMServerConfig = DetailedAEMServerConfig(
+        id, name, url, isDefault,
+        credentials?.userName ?: "", credentials?.getPasswordAsString() ?: ""
+    )
+    return detailedAEMServerConfig
+}
+
+fun List<AEMServerConfig>.toLazyDetailed(): List<DetailedAEMServerConfig> {
+    return this.map { it.toLazyDetailed() }
 }
