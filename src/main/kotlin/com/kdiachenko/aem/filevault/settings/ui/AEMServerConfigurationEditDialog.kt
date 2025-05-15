@@ -32,6 +32,7 @@ import org.apache.http.impl.client.HttpClients
 import org.jetbrains.concurrency.AsyncPromise
 import java.awt.event.ActionEvent
 import javax.swing.Action
+import javax.swing.JCheckBox
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPasswordField
@@ -48,6 +49,7 @@ class AEMServerConfigurationEditDialog(
     private lateinit var urlField: JBTextField
     private lateinit var userField: JBTextField
     private lateinit var passwordField: JPasswordField
+    private lateinit var defaultCheckbox: JCheckBox
     private lateinit var testResultField: JLabel
     private lateinit var testServerAction: Action
 
@@ -99,6 +101,24 @@ class AEMServerConfigurationEditDialog(
                     MutableProperty(
                         { serverConfig.password.toCharArray() },
                         { serverConfig.password = String(it) }
+                    )
+                )
+                .component
+        }
+        row {
+            defaultCheckbox = checkBox("Is default?")
+                .comment("""
+                    Check if this is default AEM server configuration. 
+                    Only one configuration can be default. 
+                    Another default configuration will be unchecked. 
+                    Click 'Save' button to save changes.
+                """.trimIndent(), maxLineLength = 35)
+                .bind(
+                    JCheckBox::isSelected,
+                    { field, value -> field.isSelected = value },
+                    MutableProperty(
+                        { serverConfig.isDefault },
+                        { serverConfig.isDefault = it }
                     )
                 )
                 .component

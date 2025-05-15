@@ -2,6 +2,7 @@ package com.kdiachenko.aem.filevault.settings.ui
 
 import com.intellij.util.Function
 import com.intellij.util.ui.ColumnInfo
+import com.intellij.util.ui.ListTableModel
 import com.intellij.util.ui.table.TableModelEditor
 import com.kdiachenko.aem.filevault.model.AEMServerConfig
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
@@ -14,6 +15,7 @@ import javax.swing.DefaultCellEditor
 import javax.swing.JCheckBox
 import javax.swing.JPanel
 import javax.swing.JTable
+import javax.swing.event.TableModelEvent
 import javax.swing.table.TableCellEditor
 
 class AEMServerSettingsPanel() : SettingsPanel {
@@ -30,14 +32,30 @@ class AEMServerSettingsPanel() : SettingsPanel {
             AEMServerEditor(),
             "Configure AEM servers"
         )
-        /*tableModelEditor.model.addTableModelListener {
-            var event = it as TableModelEvent
-            var model = event.source as ListTableModel<*>
-            var config = model.getValueAt(event.firstRow, event.column) as DetailedAEMServerConfig
-            if (config.isDefault) {
 
+        // Add table model listener to handle default checkbox changes
+        tableModelEditor.model.addTableModelListener { event ->
+            // Check if the change is on the Default column (column index 0)
+            if (event.type == TableModelEvent.UPDATE && event.column == 0) {
+                val model = event.source as ListTableModel<*>
+                val config = model.getItem(event.firstRow) as DetailedAEMServerConfig
+
+                // If this item was set to default, unset all other items
+                if (config.isDefault) {
+                    for (i in 0 until model.rowCount) {
+                        if (i != event.firstRow) {
+                            val otherConfig = model.getItem(i) as DetailedAEMServerConfig
+                            if (otherConfig.isDefault) {
+                                otherConfig.isDefault = false
+                                // Fire table cell updated for this row
+                                model.fireTableCellUpdated(i, 0)
+                            }
+                        }
+                    }
+                }
             }
-        }*/
+        }
+
         tableModelEditor.enabled(true)
         tableModelEditor.setShowGrid(false)
         return tableModelEditor.createComponent() as JPanel
@@ -119,6 +137,7 @@ class AEMServerSettingsPanel() : SettingsPanel {
                 it.name = newItem.name
                 it.username = newItem.username
                 it.password = newItem.password
+                it.isDefault = newItem.isDefault
             }
         }
 
@@ -135,7 +154,19 @@ class AEMServerSettingsPanel() : SettingsPanel {
                     it.name = new.name
                     it.username = new.username
                     it.password = new.password
+                    it.isDefault = new.isDefault
                 }
+
+                // If the edited item is now default, update other items
+                if (new.isDefault) {
+                    for (i in 0 until tableModelEditor.model.rowCount) {
+                        val config = tableModelEditor.model.getItem(i)
+                        if (config.id != new.id && config.isDefault) {
+                            config.isDefault = false
+                        }
+                    }
+                }
+
                 tableModelEditor.model.fireTableDataChanged()
             }
         }
