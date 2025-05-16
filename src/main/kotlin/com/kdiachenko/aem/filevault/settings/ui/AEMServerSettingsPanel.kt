@@ -15,7 +15,6 @@ import javax.swing.DefaultCellEditor
 import javax.swing.JCheckBox
 import javax.swing.JPanel
 import javax.swing.JTable
-import javax.swing.event.TableModelEvent
 import javax.swing.table.TableCellEditor
 
 class AEMServerSettingsPanel() : SettingsPanel {
@@ -33,33 +32,36 @@ class AEMServerSettingsPanel() : SettingsPanel {
             "Configure AEM servers"
         )
 
-        // Add table model listener to handle default checkbox changes
-        tableModelEditor.model.addTableModelListener { event ->
-            // Check if the change is on the Default column (column index 0)
-            if (event.type == TableModelEvent.UPDATE && event.column == 0) {
-                val model = event.source as ListTableModel<*>
-                val config = model.getItem(event.firstRow) as DetailedAEMServerConfig
-
-                // If this item was set to default, unset all other items
-                if (config.isDefault) {
-                    for (i in 0 until model.rowCount) {
-                        if (i != event.firstRow) {
-                            val otherConfig = model.getItem(i) as DetailedAEMServerConfig
-                            if (otherConfig.isDefault) {
-                                otherConfig.isDefault = false
-                                // Fire table cell updated for this row
-                                model.fireTableCellUpdated(i, 0)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+        tableModelEditor.modelListener(createDataChangedListener(tableModelEditor.model))
         tableModelEditor.enabled(true)
         tableModelEditor.setShowGrid(false)
         return tableModelEditor.createComponent() as JPanel
     }
+
+    private fun createDataChangedListener(tableModel: ListTableModel<DetailedAEMServerConfig>):
+            TableModelEditor.DataChangedListener<DetailedAEMServerConfig> =
+        object : TableModelEditor.DataChangedListener<DetailedAEMServerConfig>() {
+            private val model: ListTableModel<DetailedAEMServerConfig> = tableModel
+
+            override fun dataChanged(
+                columnInfo: ColumnInfo<DetailedAEMServerConfig?, *>,
+                rowIndex: Int
+            ) {
+                if (columnInfo.name != "Default") {
+                    return
+                }
+                val config = model.getItem(rowIndex)
+                if (!config.isDefault) return
+                for (i in 0 until model.rowCount) {
+                    if (i == rowIndex) continue
+                    val otherConfig = model.getItem(i)
+                    if (!otherConfig.isDefault) continue
+                    otherConfig.isDefault = false
+                    model.fireTableCellUpdated(i, 0)
+                }
+            }
+
+        }
 
     override fun isModified(): Boolean {
         return tableModelEditor.isModified
@@ -122,7 +124,9 @@ class AEMServerSettingsPanel() : SettingsPanel {
                 value: Boolean?
             ) = item?.isDefault = value ?: false
 
-            override fun getWidth(table: JTable?): Int = 1
+            override fun getWidth(table: JTable?): Int =
+                table?.getFontMetrics(table.getFont())?.stringWidth(name)?.plus(15)
+                    ?: super.getWidth(table)
         }
     }
 
