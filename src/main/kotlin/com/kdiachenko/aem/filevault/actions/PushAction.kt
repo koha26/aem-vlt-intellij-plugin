@@ -43,6 +43,7 @@ class PushAction : BaseAction() {
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Pushing to AEM", false) {
             override fun run(indicator: ProgressIndicator) {
+                indicator.isIndeterminate = false
                 val result = fileVaultService.importContent(server, file, indicator)
                 val operationResult = result.get()
 

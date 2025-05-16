@@ -32,6 +32,7 @@ class PullAction : BaseAction() {
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Pulling from AEM", false) {
             override fun run(indicator: ProgressIndicator) {
+                indicator.isIndeterminate = false
                 val completableFuture = fileVaultService.exportContent(server, file, indicator)
                 val operationResult = completableFuture.get()
 

@@ -113,7 +113,7 @@ object VaultOperationService : IVaultOperationService {
     }
 
     private fun initVaultFsApp(context: VltOperationContext): CustomizedVaultFsApp {
-        val vaultFsApp = vaultAppFactory.createVaultApp(context.serverConfig)
+        val vaultFsApp = vaultAppFactory.createVaultApp(context)
         vaultFsApp.init()
         return vaultFsApp
     }
