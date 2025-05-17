@@ -58,7 +58,7 @@ object VaultOperationService : IVaultOperationService {
             exporter = PlatformExporter(localFile)
             val vCtx = vaultFsApp.createVaultContext(localFile)
 
-            vCtx.isVerbose = verbose
+            vCtx.isVerbose = false
             val vaultFile = vCtx.getFileSystem(addr).getFile(context.jcrPath)
             if (vaultFile == null) {
                 logger.error("Not such remote file: ${context.jcrPath}")
@@ -89,7 +89,7 @@ object VaultOperationService : IVaultOperationService {
         val addr = RepositoryAddress(context.serverConfig.url + "/crx")
         val localFile = vaultFsApp.getPlatformFile(context.localAbsPath, false)
         val vCtx = vaultFsApp.createVaultContext(localFile)
-        vCtx.isVerbose = verbose
+        vCtx.isVerbose = false
         val vaultFile = vCtx.getFileSystem(addr).getFile(context.jcrPath)
         logger.info("Importing ${localFile.canonicalPath} to ${vaultFile.path}")
 

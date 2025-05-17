@@ -4,17 +4,10 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
-import com.kdiachenko.aem.filevault.integration.dto.DetailedOperationResult
-import com.kdiachenko.aem.filevault.integration.dto.OperationEntryDetail
-import com.kdiachenko.aem.filevault.integration.dto.VltFilter
-import com.kdiachenko.aem.filevault.integration.dto.VltOperationContext
+import com.kdiachenko.aem.filevault.integration.dto.*
 import com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade
 import com.kdiachenko.aem.filevault.integration.listener.OperationProgressTrackerListener
-import com.kdiachenko.aem.filevault.integration.service.FileChangeEntry
-import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
-import com.kdiachenko.aem.filevault.integration.service.IFileSystemService
-import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
-import com.kdiachenko.aem.filevault.integration.service.IVaultOperationService
+import com.kdiachenko.aem.filevault.integration.service.*
 import com.kdiachenko.aem.filevault.integration.service.impl.FileSystemService
 import com.kdiachenko.aem.filevault.integration.service.impl.MetaInfService
 import com.kdiachenko.aem.filevault.integration.service.impl.VaultOperationService
@@ -77,10 +70,25 @@ class FileVaultFacade : IFileVaultFacade {
             val fileChangeTracker = processExportedContent(tmpDir, projectLocalFile, jcrPath)
 
             indicator.progress("Cleaning up...", 0.9)
-            val result = createDetailedResult(
-                "Successfully exported content to $jcrPath",
-                progressTrackerListener.entries,
-                fileChangeTracker.changes
+            val operationEntryDetails = fileChangeTracker.changes.map {
+                OperationEntryDetail(
+                    action = it.action,
+                    path = it.path,
+                    message = it.reason
+                )
+            }.filterOutNothingChanged()
+            val result = DetailedOperationResult(
+                success = true,
+                message = buildString {
+                    appendLine("Successfully exported content to $jcrPath")
+                    if (operationEntryDetails.isNotEmpty()) {
+                        appendLine("<br/>Files changes statistic:")
+                    } else {
+                        appendLine("<br/>Files were not changed.")
+                    }
+                    appendLine(createDetailedResult(operationEntryDetails))
+                },
+                entries = operationEntryDetails
             )
 
             return@supplyAsync result
@@ -148,7 +156,7 @@ class FileVaultFacade : IFileVaultFacade {
             tmpDir = prepareImportDirectory(jcrPath, projectLocalFile)
 
             indicator.progress("Preparing content for import...", 0.3)
-            val fileChangeTracker = copyContentToImportDirectory(projectLocalFile, tmpDir, jcrPath)
+            copyContentToImportDirectory(projectLocalFile, tmpDir, jcrPath)
 
             indicator.progress("Importing content to AEM...", 0.5)
             val progressTrackerListener = OperationProgressTrackerListener()
@@ -161,10 +169,20 @@ class FileVaultFacade : IFileVaultFacade {
             )
 
             indicator.progress("Cleaning up...", 0.9)
-            val result = createDetailedResult(
-                "Successfully imported content from $jcrPath",
-                progressTrackerListener.entries,
-                fileChangeTracker.changes
+
+            val operationEntryDetails = progressTrackerListener.entries.filterOutNothingChanged()
+            val result = DetailedOperationResult(
+                success = true,
+                message = buildString {
+                    appendLine("Successfully imported content from $jcrPath.")
+                    if (operationEntryDetails.isNotEmpty()) {
+                        appendLine("<br/>Nodes changes statistic:")
+                    } else {
+                        appendLine("<br/>Nodes were not changed.")
+                    }
+                    appendLine(createDetailedResult(operationEntryDetails))
+                },
+                entries = operationEntryDetails
             )
 
             return@supplyAsync result
@@ -228,46 +246,29 @@ class FileVaultFacade : IFileVaultFacade {
         return VltFilter(normalizedJcrPath)
     }
 
+    private fun List<OperationEntryDetail>.filterOutNothingChanged(): List<OperationEntryDetail> =
+        this.filter { OperationAction.NOTHING_CHANGED != it.action }
 
-    /**
-     * Creates a detailed operation result by combining information from FileVault operations
-     * and file change tracking.
-     */
-    private fun createDetailedResult(
-        message: String,
-        listenerEntries: List<OperationEntryDetail>,
-        fileChanges: List<FileChangeEntry>
-    ): DetailedOperationResult {
-        val processedEntries = mutableListOf<OperationEntryDetail>()
+    private fun createDetailedResult(operationEntries: List<OperationEntryDetail>): String {
+        val updated = operationEntries.filter { OperationAction.UPDATED == it.action }
+        val removed = operationEntries.filter { OperationAction.DELETED == it.action }
+        val added = operationEntries.filter { OperationAction.ADDED == it.action }
+        val error = operationEntries.filter { OperationAction.ERROR == it.action }
 
-        listenerEntries.forEach { entry ->
-            processedEntries.add(
-                OperationEntryDetail(
-                    action = entry.action,
-                    path = entry.path,
-                    message = entry.message
-                )
-            )
-        }
-
-        fileChanges.forEach { change ->
-            val existingEntry = processedEntries.find { it.path == change.path }
-            if (existingEntry == null) {
-                processedEntries.add(
-                    OperationEntryDetail(
-                        action = change.action,
-                        path = change.path,
-                        message = change.reason
-                    )
-                )
+        return buildString {
+            if (updated.isNotEmpty()) {
+                append("Updated: ${updated.size}")
+            }
+            if (added.isNotEmpty()) {
+                append(" | Added: ${added.size}")
+            }
+            if (removed.isNotEmpty()) {
+                append(" | Removed: ${removed.size}")
+            }
+            if (error.isNotEmpty()) {
+                append(" | Error: ${error.size}")
             }
         }
-
-        return DetailedOperationResult(
-            success = true,
-            message = message,
-            entries = processedEntries
-        )
     }
 
     private fun failed(message: String): DetailedOperationResult = DetailedOperationResult(
