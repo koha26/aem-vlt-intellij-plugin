@@ -14,7 +14,7 @@ import com.kdiachenko.aem.filevault.integration.service.NotificationService
 /**
  * Action to push content to AEM repository
  */
-class PushAction : BaseAction() {
+class PushAction : BaseOperationAction() {
     private val logger = Logger.getInstance(PushAction::class.java)
 
     override fun getIcon() = com.intellij.icons.AllIcons.Vcs.Push
@@ -22,24 +22,10 @@ class PushAction : BaseAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         val virtualFile = getSelectedFile(e) ?: return
-        val server = getSelectedServer(project) ?: return
+        val server = getDefaultServer(project) ?: return
 
         val fileVaultService = FileVaultFacade.getInstance(project)
         val file = virtualToIoFile(virtualFile)
-
-        /*// Confirm before pushing
-        val confirmation = Messages.showYesNoDialog(
-            project,
-            "Push ${file.name} to ${server.name} at path $remotePath?",
-            "Confirm Push to AEM",
-            "Push",
-            "Cancel",
-            Messages.getQuestionIcon()
-        )
-
-        if (confirmation != Messages.YES) {
-            return
-        }*/
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Pushing to AEM", false) {
             override fun run(indicator: ProgressIndicator) {
@@ -49,10 +35,7 @@ class PushAction : BaseAction() {
 
                 ApplicationManager.getApplication().invokeLater {
                     if (operationResult.success) {
-                        operationResult.entries.forEach {
-                            logger.info("Pushed: $it")
-                            println("Pushed: $it")
-                        }
+                        operationResult.entries.forEach { logger.debug("Pushed: $it") }
                         NotificationService.showInfo(project, "Push Successful", operationResult.message)
                     } else {
                         NotificationService.showError(project, "Push Failed", operationResult.message)
@@ -62,17 +45,4 @@ class PushAction : BaseAction() {
         })
     }
 
-    /**
-     * Show dialog to confirm or modify remote path
-     */
-    private fun showPathDialog(project: Project, suggestedPath: String): String? {
-        return Messages.showInputDialog(
-            project,
-            "Enter AEM repository path to push to:",
-            "Push to AEM",
-            null,
-            suggestedPath,
-            null
-        )
-    }
 }

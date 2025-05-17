@@ -15,34 +15,34 @@
     <extensions defaultExtensionNs="com.intellij">
         <!-- Add application settings -->
         <applicationConfigurable
-                instance="com.kdiachenko.aem.filevault.settings.AEMServerConfigurable"
-                id="com.aem.filevault.settings.AEMServerConfigurable"
-                displayName="AEM FileVault Settings"/>
+                instance="com.kdiachenko.aem.filevault.settings.AEMVltConfigurable"
+                id="com.kdiachenko.aem.filevault.settings.AEMVltConfigurable"
+                displayName="AEM VLT Settings"/>
 
         <applicationService
                 serviceImplementation="com.kdiachenko.aem.filevault.settings.AEMServerSettings"/>
 
         <!-- Notification group -->
-        <notificationGroup id="AEM FileVault Notifications"
+        <notificationGroup id="AEM VLT Notifications"
                            displayType="BALLOON"
                            isLogByDefault="true"/>
     </extensions>
 
     <actions>
         <!-- AEM FileVault action group -->
-        <group id="AEMFileVault.ActionGroup"
-               text="AEM FileVault"
-               description="AEM FileVault Operations"
+        <group id="AEMVLT.ActionGroup"
+               text="AEM VLT"
+               description="AEM VLT Operations"
                popup="true">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="ProjectViewPopupMenuRefactoringGroup"/>
             <separator/>
-            <action id="AEMFileVault.PullAction"
+            <action id="AEMVLT.PullAction"
                     class="com.kdiachenko.aem.filevault.actions.PullAction"
-                    text="Pull from AEM"
+                    text="Pull from AEM (Default)"
                     description="Pull content from AEM repository"/>
-            <action id="AEMFileVault.PushAction"
+            <action id="AEMVLT.PushAction"
                     class="com.kdiachenko.aem.filevault.actions.PushAction"
-                    text="Push to AEM"
+                    text="Push to AEM (Default)"
                     description="Push content to AEM repository"/>
             <separator/>
         </group>

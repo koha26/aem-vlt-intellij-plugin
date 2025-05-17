@@ -15,7 +15,6 @@ class CustomizedVaultFsApp(val context: VltOperationContext) : VaultFsApp() {
     public override fun init() {
         super.init()
 
-        // read the default URI from the .vlt root if available
         val cwd: File?
         try {
             cwd = File(context.localAbsPath).getCanonicalFile()

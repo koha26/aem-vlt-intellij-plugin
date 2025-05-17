@@ -8,7 +8,7 @@ import com.intellij.openapi.project.Project
  * Service for displaying notifications to users
  */
 object NotificationService {
-    private const val GROUP_ID = "AEM FileVault Notifications"
+    private const val GROUP_ID = "AEM VLT Notifications"
 
     /**
      * Show information notification

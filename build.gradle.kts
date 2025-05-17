@@ -29,12 +29,10 @@ repositories {
     }
 }
 
-val jackrabbitVersion = providers.gradleProperty("jackrabbitVersion").get()
 val fileVaultVersion = providers.gradleProperty("fileVaultVersion").get()
 
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
-    implementation("org.apache.jackrabbit:jackrabbit-core:${jackrabbitVersion}")
     implementation("org.apache.jackrabbit.vault:org.apache.jackrabbit.vault:${fileVaultVersion}")
     implementation("org.apache.jackrabbit.vault:vault-cli:${fileVaultVersion}")
     implementation("org.apache.jackrabbit.vault:vault-davex:3.7.0")

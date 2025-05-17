@@ -1,6 +1,7 @@
 package com.kdiachenko.aem.filevault.util
 
 import com.intellij.openapi.util.io.FileUtil
+import com.intellij.openapi.vfs.VirtualFile
 import java.io.File
 
 /**
@@ -8,8 +9,12 @@ import java.io.File
  */
 object JcrPathUtil {
 
-    fun File.toJcrPath(): String? {
-        val absolutePath = this.absolutePath
+    fun File.toJcrPath(): String? = this.absolutePath.toJcrPath()
+
+    fun VirtualFile.toJcrPath(): String? = this.path.toJcrPath()
+
+    fun String.toJcrPath(): String? {
+        val absolutePath = this
         if (absolutePath.indexOf("jcr_root") == -1) {
             return null
         }

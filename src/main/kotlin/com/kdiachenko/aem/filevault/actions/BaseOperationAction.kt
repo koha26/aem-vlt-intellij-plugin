@@ -6,17 +6,20 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.PlatformDataKeys
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.ui.messages.MessagesService
 import com.intellij.openapi.vfs.VirtualFile
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.model.toDetailed
 import com.kdiachenko.aem.filevault.settings.AEMServerSettings
+import com.kdiachenko.aem.filevault.util.JcrPathUtil.toJcrPath
+import java.awt.Component
 import java.io.File
 import javax.swing.Icon
 
 /**
  * Base abstract class for FileVault actions
  */
-abstract class BaseAction : AnAction() {
+abstract class BaseOperationAction : AnAction() {
 
     abstract fun getIcon(): Icon
 
@@ -28,14 +31,16 @@ abstract class BaseAction : AnAction() {
         val project = e.project
         val virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE)
 
-        e.presentation.isEnabledAndVisible = project != null && virtualFile != null
+        e.presentation.isEnabledAndVisible = project != null && virtualFile != null && virtualFile.inUnderJcrRoot()
         e.presentation.icon = getIcon()
     }
+
+    fun VirtualFile.inUnderJcrRoot(): Boolean = this.toJcrPath() != null
 
     /**
      * Get a selected server for operation
      */
-    protected fun getSelectedServer(project: Project): DetailedAEMServerConfig? {
+    protected open fun getDefaultServer(project: Project): DetailedAEMServerConfig? {
         val settings = AEMServerSettings.getInstance().state
         val servers = settings.configuredServers
 
@@ -57,17 +62,12 @@ abstract class BaseAction : AnAction() {
             return defaultServer.toDetailed()
         }
 
-        val serverNames = servers.map { it.name }.toTypedArray()
-        val selection = Messages.showChooseDialog(
+        Messages.showErrorDialog(
             project,
-            "Select AEM server to connect to:",
-            "Select Server",
-            null,
-            serverNames,
-            serverNames[0]
+            "No default AEM servers configured. Please mark desired server as default in Settings | AEM FileVault Settings.",
+            "No Default Servers Configured"
         )
-
-        return if (selection >= 0) servers[selection].toDetailed() else null
+        return null
     }
 
     /**
@@ -77,9 +77,6 @@ abstract class BaseAction : AnAction() {
         return e.getData(PlatformDataKeys.VIRTUAL_FILE)
     }
 
-    /**
-     * Convert VirtualFile to File
-     */
     protected fun virtualToIoFile(virtualFile: VirtualFile): File {
         return File(virtualFile.path)
     }

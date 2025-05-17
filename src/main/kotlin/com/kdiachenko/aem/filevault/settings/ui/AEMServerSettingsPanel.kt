@@ -21,7 +21,7 @@ class AEMServerSettingsPanel() : SettingsPanel {
     private lateinit var tableModelEditor: TableModelEditor<DetailedAEMServerConfig>
     private lateinit var initialDetailedConfigs: List<DetailedAEMServerConfig>
 
-    override fun name(): String = "AEM FileVault Settings"
+    override fun name(): String = "AEM VLT Settings"
 
     override fun getPanel(): JPanel {
         initialDetailedConfigs = state().configuredServers.toLazyDetailed()

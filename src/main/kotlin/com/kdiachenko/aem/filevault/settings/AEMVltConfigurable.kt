@@ -3,7 +3,6 @@ package com.kdiachenko.aem.filevault.settings
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.options.ConfigurationException
 import com.intellij.ui.dsl.builder.Align
-import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.panel
 import com.kdiachenko.aem.filevault.settings.ui.AEMServerSettingsPanel
 import javax.swing.*
@@ -11,10 +10,10 @@ import javax.swing.*
 /**
  * Settings UI for configuring AEM servers
  */
-class AEMServerConfigurable() : Configurable {
+class AEMVltConfigurable() : Configurable {
     private var settingsPanel: SettingsPanel? = null
 
-    override fun getDisplayName(): String = settingsPanel?.name() ?: "AEM FileVault Settings"
+    override fun getDisplayName(): String = settingsPanel?.name() ?: "AEM VLT Settings"
 
     override fun getPreferredFocusedComponent(): JComponent? {
         return settingsPanel?.getPanel()

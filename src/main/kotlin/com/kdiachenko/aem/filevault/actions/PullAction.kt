@@ -6,18 +6,16 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
-import com.kdiachenko.aem.filevault.integration.service.NotificationService
 import com.kdiachenko.aem.filevault.integration.facade.impl.FileVaultFacade
+import com.kdiachenko.aem.filevault.integration.service.NotificationService
 import javax.swing.Icon
 
 /**
  * Action to pull content from AEM repository
  */
-class PullAction : BaseAction() {
+open class PullAction : BaseOperationAction() {
     private val logger = Logger.getInstance(PullAction::class.java)
 
     override fun getIcon(): Icon = com.intellij.icons.AllIcons.Vcs.Fetch
@@ -25,7 +23,7 @@ class PullAction : BaseAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         val virtualFile = getSelectedFile(e) ?: return
-        val server = getSelectedServer(project) ?: return
+        val server = getDefaultServer(project) ?: return
 
         val fileVaultService = FileVaultFacade.getInstance(project)
         val file = virtualToIoFile(virtualFile)
@@ -39,10 +37,7 @@ class PullAction : BaseAction() {
                 ApplicationManager.getApplication().invokeLater {
                     if (operationResult.success) {
                         refreshVirtualFile(virtualFile)
-                        operationResult.entries.forEach {
-                            logger.info("Pulled: $it")
-                            println("Pulled: $it")
-                        }
+                        operationResult.entries.forEach { logger.debug("Pulled: $it") }
                         NotificationService.showInfo(project, "Pull Successful", operationResult.message)
                     } else {
                         NotificationService.showError(project, "Pull Failed", operationResult.message)
@@ -50,20 +45,6 @@ class PullAction : BaseAction() {
                 }
             }
         })
-    }
-
-    /**
-     * Show a dialog to confirm or modify remote path
-     */
-    private fun showPathDialog(project: Project, suggestedPath: String): String? {
-        return Messages.showInputDialog(
-            project,
-            "Enter AEM repository path to pull from:",
-            "Pull from AEM",
-            null,
-            suggestedPath,
-            null
-        )
     }
 
     /**
