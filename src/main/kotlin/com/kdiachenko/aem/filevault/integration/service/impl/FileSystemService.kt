@@ -1,14 +1,15 @@
 package com.kdiachenko.aem.filevault.integration.service.impl
 
 import com.intellij.openapi.diagnostic.Logger
+import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
 import com.kdiachenko.aem.filevault.integration.service.IFileSystemService
-import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import java.io.IOException
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
 import kotlin.io.path.createTempDirectory
+import kotlin.io.path.exists
 
 object FileSystemService : IFileSystemService {
     private val logger = Logger.getInstance(FileSystemService::class.java)
@@ -92,12 +93,17 @@ object FileSystemService : IFileSystemService {
     }
 
     override fun copyFile(source: Path, target: Path, tracker: FileChangeTracker) {
+        if (!target.exists()) {
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+            tracker.addChange(OperationAction.ADDED, target.toString(), "Content added")
+            return
+        }
         if (!Files.isSameFile(source, target)) {
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
             tracker.addChange(OperationAction.UPDATED, target.toString(), "Content changed")
-        } else {
-            tracker.addChange(OperationAction.NOTHING_CHANGED, target.toString(), "Content unchanged")
+            return
         }
+        tracker.addChange(OperationAction.NOTHING_CHANGED, target.toString(), "Content unchanged")
     }
 
     override fun deleteDirectory(directory: Path?) {

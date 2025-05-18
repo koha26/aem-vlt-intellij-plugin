@@ -1,0 +1,196 @@
+package com.kdiachenko.aem.filevault.integration.service.impl
+
+import com.kdiachenko.aem.filevault.integration.dto.OperationAction
+import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.nio.file.Files
+
+class FileSystemServiceTest {
+
+    @Rule
+    @JvmField
+    var tempFolder: TemporaryFolder = TemporaryFolder.builder().assureDeletion().build()
+
+    @Test
+    fun testCreateTempDirectory() {
+        val tempDir = FileSystemService.createTempDirectory()
+
+        try {
+            assertTrue(Files.exists(tempDir))
+            assertTrue(Files.isDirectory(tempDir))
+            assertTrue(tempDir.toString().contains("aem-filevault-"))
+        } finally {
+            FileSystemService.deleteDirectory(tempDir)
+        }
+    }
+
+    @Test
+    fun testDeleteDirectoryRemovesAllContents() {
+        val tempDir = tempFolder.newFolder().toPath()
+
+        val subDir = tempDir.resolve("subdir")
+        Files.createDirectory(subDir)
+        val file1 = tempDir.resolve("file1.txt")
+        Files.write(file1, "test content".toByteArray())
+        val file2 = subDir.resolve("file2.txt")
+        Files.write(file2, "test content in subdir".toByteArray())
+
+        FileSystemService.deleteDirectory(tempDir)
+
+        assertFalse(Files.exists(tempDir))
+        assertFalse(Files.exists(subDir))
+        assertFalse(Files.exists(file1))
+        assertFalse(Files.exists(file2))
+    }
+
+    @Test
+    fun testCopyFileCreatesNewFile() {
+        val sourceDir = tempFolder.newFolder("source").toPath()
+        val targetDir = tempFolder.newFolder("target").toPath()
+
+        try {
+            val sourceFile = sourceDir.resolve("test.txt")
+            Files.write(sourceFile, "test content".toByteArray())
+            val targetFile = targetDir.resolve("test.txt")
+            val tracker = FileChangeTracker()
+
+            FileSystemService.copyFile(sourceFile, targetFile, tracker)
+
+            assertTrue(Files.exists(targetFile))
+            assertEquals("test content", String(Files.readAllBytes(targetFile)))
+            assertEquals(1, tracker.changes.size)
+            assertEquals(OperationAction.ADDED, tracker.changes[0].action)
+            assertEquals(targetFile.toString(), tracker.changes[0].path)
+        } finally {
+            FileSystemService.deleteDirectory(sourceDir)
+            FileSystemService.deleteDirectory(targetDir)
+        }
+    }
+
+    @Test
+    fun testCopyFileUpdatesExistingFile() {
+        val sourceDir = tempFolder.newFolder("source").toPath()
+        val targetDir = tempFolder.newFolder("target").toPath()
+
+        try {
+            val sourceFile = sourceDir.resolve("test.txt")
+            Files.write(sourceFile, "initial content".toByteArray())
+            val targetFile = targetDir.resolve("test.txt")
+            Files.write(targetFile, "another content".toByteArray())
+            val tracker = FileChangeTracker()
+
+            FileSystemService.copyFile(sourceFile, targetFile, tracker)
+            Files.write(sourceFile, "modified content".toByteArray())
+            FileSystemService.copyFile(sourceFile, targetFile, tracker)
+
+            assertEquals("modified content", String(Files.readAllBytes(targetFile)))
+            assertEquals(2, tracker.changes.size)
+            assertEquals(OperationAction.UPDATED, tracker.changes[1].action)
+        } finally {
+            FileSystemService.deleteDirectory(sourceDir)
+            FileSystemService.deleteDirectory(targetDir)
+        }
+    }
+
+    @Test
+    fun testCopyFileDontUpdateExistingFile() {
+        val sourceDir = tempFolder.newFolder("source").toPath()
+        val targetDir = tempFolder.newFolder("target").toPath()
+
+        try {
+            val sourceFile = sourceDir.resolve("test.txt")
+            Files.write(sourceFile, "initial content".toByteArray())
+            val tracker = FileChangeTracker()
+
+            FileSystemService.copyFile(sourceFile, sourceFile, tracker)
+
+            assertEquals("initial content", String(Files.readAllBytes(sourceFile)))
+            assertEquals(1, tracker.changes.size)
+            assertEquals(OperationAction.NOTHING_CHANGED, tracker.changes[0].action)
+        } finally {
+            FileSystemService.deleteDirectory(sourceDir)
+            FileSystemService.deleteDirectory(targetDir)
+        }
+    }
+
+    @Test
+    fun testCopyDirectoryCopiesStructure() {
+        val sourceDir = tempFolder.newFolder("source").toPath()
+        val targetDir = tempFolder.newFolder("target").toPath()
+
+        try {
+            val sourceSubDir = sourceDir.resolve("subdir")
+            Files.createDirectory(sourceSubDir)
+            val sourceFile1 = sourceDir.resolve("file1.txt")
+            Files.write(sourceFile1, "test content 1".toByteArray())
+            val sourceFile2 = sourceSubDir.resolve("file2.txt")
+            Files.write(sourceFile2, "test content 2".toByteArray())
+
+            val tracker = FileChangeTracker()
+            FileSystemService.copyDirectory(sourceDir, targetDir, tracker)
+
+            val targetSubDir = targetDir.resolve("subdir")
+            val targetFile1 = targetDir.resolve("file1.txt")
+            val targetFile2 = targetSubDir.resolve("file2.txt")
+
+            assertTrue(Files.exists(targetSubDir))
+            assertTrue(Files.exists(targetFile1))
+            assertTrue(Files.exists(targetFile2))
+            assertEquals("test content 1", String(Files.readAllBytes(targetFile1)))
+            assertEquals("test content 2", String(Files.readAllBytes(targetFile2)))
+            assertTrue(tracker.changes.size >= 3)
+        } finally {
+            FileSystemService.deleteDirectory(sourceDir)
+            FileSystemService.deleteDirectory(targetDir)
+        }
+    }
+
+    @Test
+    fun testCopyDirectoryUpdatesModifiedFiles() {
+        val sourceDir = tempFolder.newFolder("source").toPath()
+        val targetDir = tempFolder.newFolder("target").toPath()
+
+        try {
+            val sourceFile = sourceDir.resolve("file.txt")
+            Files.write(sourceFile, "initial content".toByteArray())
+
+            FileSystemService.copyDirectory(sourceDir, targetDir, FileChangeTracker())
+            Files.write(sourceFile, "modified content".toByteArray())
+
+            val tracker = FileChangeTracker()
+            FileSystemService.copyDirectory(sourceDir, targetDir, tracker)
+
+            assertEquals("modified content", String(Files.readAllBytes(targetDir.resolve("file.txt"))))
+            assertTrue(tracker.changes.isNotEmpty())
+        } finally {
+            FileSystemService.deleteDirectory(sourceDir)
+            FileSystemService.deleteDirectory(targetDir)
+        }
+    }
+
+    @Test
+    fun testCopyDirectoryDeletesRemovedFiles() {
+        val sourceDir = tempFolder.newFolder("source").toPath()
+        val targetDir = tempFolder.newFolder("target").toPath()
+
+        try {
+            val sourceFile = sourceDir.resolve("file.txt")
+            Files.write(sourceFile, "test content".toByteArray())
+
+            FileSystemService.copyDirectory(sourceDir, targetDir, FileChangeTracker())
+            Files.delete(sourceFile)
+
+            val tracker = FileChangeTracker()
+            FileSystemService.copyDirectory(sourceDir, targetDir, tracker)
+
+            assertFalse(Files.exists(targetDir.resolve("file.txt")))
+            assertTrue(tracker.changes.isNotEmpty())
+        } finally {
+            FileSystemService.deleteDirectory(sourceDir)
+            FileSystemService.deleteDirectory(targetDir)
+        }
+    }
+}

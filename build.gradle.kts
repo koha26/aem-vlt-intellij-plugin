@@ -1,5 +1,6 @@
 import org.jetbrains.changelog.Changelog
 import org.jetbrains.changelog.markdownToHTML
+import org.jetbrains.intellij.platform.gradle.Constants
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -39,6 +40,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
+    /*testImplementation("junit:junit:4.13.2")*/
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.12.2")
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
@@ -50,7 +53,8 @@ dependencies {
         // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file for plugin from JetBrains Marketplace.
         plugins(providers.gradleProperty("platformPlugins").map { it.split(',') })
 
-        testFramework(TestFrameworkType.Platform)
+        testFramework(TestFrameworkType.Platform, configurationName = Constants.Configurations.INTELLIJ_PLATFORM_DEPENDENCIES)
+        testFramework(TestFrameworkType.JUnit5, configurationName = Constants.Configurations.INTELLIJ_PLATFORM_DEPENDENCIES)
     }
 }
 
@@ -124,6 +128,9 @@ kover {
     reports {
         total {
             xml {
+                onCheck = true
+            }
+            html {
                 onCheck = true
             }
         }
