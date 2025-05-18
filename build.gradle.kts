@@ -40,8 +40,15 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
-    /*testImplementation("junit:junit:4.13.2")*/
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.12.2")
+    testImplementation(libs.junitJupiter)
+    testImplementation(libs.junitJupiterParams)
+
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine") {
+        because("allows JUnit 3 and JUnit 4 tests to run")
+    }
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher") {
+        because("allows tests to run from IDEs that bundle older version of launcher")
+    }
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
@@ -144,6 +151,10 @@ tasks {
 
     publishPlugin {
         dependsOn(patchChangelog)
+    }
+
+    test {
+        useJUnitPlatform()
     }
 }
 

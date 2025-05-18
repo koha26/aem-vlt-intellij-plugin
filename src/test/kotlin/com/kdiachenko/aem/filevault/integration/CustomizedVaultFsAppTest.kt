@@ -4,9 +4,8 @@ import com.kdiachenko.aem.filevault.integration.dto.VltOperationContext
 import com.kdiachenko.aem.filevault.integration.listener.OperationProgressTrackerListener
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import org.apache.jackrabbit.vault.fs.api.RepositoryAddress
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 import java.io.File
 
 class CustomizedVaultFsAppTest {

@@ -1,8 +1,8 @@
 package com.kdiachenko.aem.filevault.integration.service
 
 import com.kdiachenko.aem.filevault.integration.dto.OperationAction
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 
 class FileChangeTrackerTest {
 

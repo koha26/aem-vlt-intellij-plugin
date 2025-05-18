@@ -2,9 +2,8 @@ package com.kdiachenko.aem.filevault.integration.dto
 
 import com.kdiachenko.aem.filevault.integration.listener.OperationProgressTrackerListener
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 
 class VltOperationContextTest {
 

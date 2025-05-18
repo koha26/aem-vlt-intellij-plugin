@@ -1,19 +1,18 @@
 package com.kdiachenko.aem.filevault.integration.service.impl
 
 import com.kdiachenko.aem.filevault.integration.dto.VltFilter
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Rule
-import org.junit.Test
-import org.junit.rules.TemporaryFolder
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 
 class MetaInfServiceTest {
 
-    @Rule
+    @TempDir
     @JvmField
-    var tempFolder: TemporaryFolder = TemporaryFolder.builder().assureDeletion().build()
+    var tempFolder: Path? = null
+
     private lateinit var tempDir: Path
 
     @Test
@@ -71,10 +70,15 @@ class MetaInfServiceTest {
         )
     }
 
-    private fun createMetaInfTestDir(): Path =
-        tempFolder.newFolder("meta-inf-test").toPath()
+    private fun createMetaInfTestDir(): Path {
+        val resolve = tempFolder?.resolve("meta-inf-test") ?: throw Exception("Temp dir is null")
+        resolve.toFile().mkdir()
+        return resolve
+    }
+
 
     private fun createAndVerifyFilterXml(filter: VltFilter, expectedContent: String) {
+        val tempDir = tempFolder ?: throw Exception("Temp dir is null")
         try {
             MetaInfService.createFilterXml(tempDir, filter)
 

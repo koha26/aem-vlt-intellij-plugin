@@ -3,9 +3,8 @@ package com.kdiachenko.aem.filevault.integration.factory.impl
 import com.kdiachenko.aem.filevault.integration.CustomizedVaultFsApp
 import com.kdiachenko.aem.filevault.integration.dto.VltOperationContext
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 
 class VaultAppFactoryTest {
 

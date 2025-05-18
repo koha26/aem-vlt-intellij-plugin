@@ -2,8 +2,8 @@ package com.kdiachenko.aem.filevault.integration.listener
 
 import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import org.apache.jackrabbit.vault.fs.api.ProgressTrackerListener
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 
 class OperationProgressTrackerListenerTest {
 

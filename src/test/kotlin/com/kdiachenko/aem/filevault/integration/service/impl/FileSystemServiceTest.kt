@@ -2,17 +2,17 @@ package com.kdiachenko.aem.filevault.integration.service.impl
 
 import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
-import org.junit.rules.TemporaryFolder
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
+import java.nio.file.Path
 
 class FileSystemServiceTest {
 
-    @Rule
+    @TempDir
     @JvmField
-    var tempFolder: TemporaryFolder = TemporaryFolder.builder().assureDeletion().build()
+    var tempFolder: Path? = null
 
     @Test
     fun testCreateTempDirectory() {
@@ -29,7 +29,8 @@ class FileSystemServiceTest {
 
     @Test
     fun testDeleteDirectoryRemovesAllContents() {
-        val tempDir = tempFolder.newFolder().toPath()
+        val tempDir = tempFolder?.resolve("testdir") ?: throw Exception("Temp dir is null")
+        Files.createDirectory(tempDir)
 
         val subDir = tempDir.resolve("subdir")
         Files.createDirectory(subDir)
@@ -48,8 +49,10 @@ class FileSystemServiceTest {
 
     @Test
     fun testCopyFileCreatesNewFile() {
-        val sourceDir = tempFolder.newFolder("source").toPath()
-        val targetDir = tempFolder.newFolder("target").toPath()
+        val sourceDir = tempFolder?.resolve("source") ?: throw Exception("Temp dir is null")
+        sourceDir.toFile().mkdir()
+        val targetDir = tempFolder?.resolve("target") ?: throw Exception("Temp dir is null")
+        targetDir.toFile().mkdir()
 
         try {
             val sourceFile = sourceDir.resolve("test.txt")
@@ -72,8 +75,10 @@ class FileSystemServiceTest {
 
     @Test
     fun testCopyFileUpdatesExistingFile() {
-        val sourceDir = tempFolder.newFolder("source").toPath()
-        val targetDir = tempFolder.newFolder("target").toPath()
+        val sourceDir = tempFolder?.resolve("source") ?: throw Exception("Temp dir is null")
+        sourceDir.toFile().mkdir()
+        val targetDir = tempFolder?.resolve("target") ?: throw Exception("Temp dir is null")
+        targetDir.toFile().mkdir()
 
         try {
             val sourceFile = sourceDir.resolve("test.txt")
@@ -97,8 +102,10 @@ class FileSystemServiceTest {
 
     @Test
     fun testCopyFileDontUpdateExistingFile() {
-        val sourceDir = tempFolder.newFolder("source").toPath()
-        val targetDir = tempFolder.newFolder("target").toPath()
+        val sourceDir = tempFolder?.resolve("source") ?: throw Exception("Temp dir is null")
+        sourceDir.toFile().mkdir()
+        val targetDir = tempFolder?.resolve("target") ?: throw Exception("Temp dir is null")
+        targetDir.toFile().mkdir()
 
         try {
             val sourceFile = sourceDir.resolve("test.txt")
@@ -118,8 +125,10 @@ class FileSystemServiceTest {
 
     @Test
     fun testCopyDirectoryCopiesStructure() {
-        val sourceDir = tempFolder.newFolder("source").toPath()
-        val targetDir = tempFolder.newFolder("target").toPath()
+        val sourceDir = tempFolder?.resolve("source") ?: throw Exception("Temp dir is null")
+        sourceDir.toFile().mkdir()
+        val targetDir = tempFolder?.resolve("target") ?: throw Exception("Temp dir is null")
+        targetDir.toFile().mkdir()
 
         try {
             val sourceSubDir = sourceDir.resolve("subdir")
@@ -150,8 +159,10 @@ class FileSystemServiceTest {
 
     @Test
     fun testCopyDirectoryUpdatesModifiedFiles() {
-        val sourceDir = tempFolder.newFolder("source").toPath()
-        val targetDir = tempFolder.newFolder("target").toPath()
+        val sourceDir = tempFolder?.resolve("source") ?: throw Exception("Temp dir is null")
+        sourceDir.toFile().mkdir()
+        val targetDir = tempFolder?.resolve("target") ?: throw Exception("Temp dir is null")
+        targetDir.toFile().mkdir()
 
         try {
             val sourceFile = sourceDir.resolve("file.txt")
@@ -173,8 +184,10 @@ class FileSystemServiceTest {
 
     @Test
     fun testCopyDirectoryDeletesRemovedFiles() {
-        val sourceDir = tempFolder.newFolder("source").toPath()
-        val targetDir = tempFolder.newFolder("target").toPath()
+        val sourceDir = tempFolder?.resolve("source") ?: throw Exception("Temp dir is null")
+        sourceDir.toFile().mkdir()
+        val targetDir = tempFolder?.resolve("target") ?: throw Exception("Temp dir is null")
+        targetDir.toFile().mkdir()
 
         try {
             val sourceFile = sourceDir.resolve("file.txt")

@@ -6,12 +6,6 @@ import org.junit.jupiter.params.provider.MethodSource
 
 class OperationActionTest {
 
-    @ParameterizedTest(name = "Should return {0} for input {1}")
-    @MethodSource("operationActionData")
-    fun testFromString(expected: OperationAction, input: String) {
-        Assertions.assertEquals(expected, OperationAction.fromString(input))
-    }
-
     companion object {
         @JvmStatic
         fun operationActionData(): Collection<Array<Any>> {
@@ -25,5 +19,11 @@ class OperationActionTest {
                 arrayOf(OperationAction.NOTHING_CHANGED, "INVALID")
             )
         }
+    }
+
+    @ParameterizedTest(name = "Should return {0} for input {1}")
+    @MethodSource("operationActionData")
+    fun testFromString(expected: OperationAction, input: String) {
+        Assertions.assertEquals(expected, OperationAction.fromString(input))
     }
 }

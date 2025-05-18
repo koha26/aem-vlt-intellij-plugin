@@ -1,8 +1,7 @@
 package com.kdiachenko.aem.filevault.integration.dto
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
-import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 
 class VltFilterTest {
 
