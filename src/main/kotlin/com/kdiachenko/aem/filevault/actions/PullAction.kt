@@ -9,7 +9,7 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.kdiachenko.aem.filevault.integration.facade.impl.FileVaultFacade
-import com.kdiachenko.aem.filevault.integration.service.NotificationService
+import com.kdiachenko.aem.filevault.integration.service.impl.NotificationService
 import javax.swing.Icon
 
 /**
@@ -35,12 +35,13 @@ open class PullAction : BaseOperationAction() {
                 val operationResult = completableFuture.get()
 
                 ApplicationManager.getApplication().invokeLater {
+                    val notificationService = NotificationService.getInstance(project)
                     if (operationResult.success) {
                         refreshVirtualFile(virtualFile)
                         operationResult.entries.forEach { logger.debug("Pulled: $it") }
-                        NotificationService.showInfo(project, "Pull Successful", operationResult.message)
+                        notificationService.showInfo("Pull Successful", operationResult.message)
                     } else {
-                        NotificationService.showError(project, "Pull Failed", operationResult.message)
+                        notificationService.showError("Pull Failed", operationResult.message)
                     }
                 }
             }

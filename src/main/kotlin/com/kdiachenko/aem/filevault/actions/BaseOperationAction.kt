@@ -23,9 +23,7 @@ abstract class BaseOperationAction : AnAction() {
 
     abstract fun getIcon(): Icon
 
-    override fun getActionUpdateThread(): ActionUpdateThread {
-        return ActionUpdateThread.BGT
-    }
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
         val project = e.project

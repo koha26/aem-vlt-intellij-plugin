@@ -22,6 +22,11 @@
         <applicationService
                 serviceImplementation="com.kdiachenko.aem.filevault.settings.AEMServerSettings"/>
 
+        <projectService serviceImplementation="com.kdiachenko.aem.filevault.integration.facade.impl.FileVaultFacade"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade"/>
+        <projectService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.NotificationService"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.service.INotificationService"/>
+
         <!-- Notification group -->
         <notificationGroup id="AEM VLT Notifications"
                            displayType="BALLOON"

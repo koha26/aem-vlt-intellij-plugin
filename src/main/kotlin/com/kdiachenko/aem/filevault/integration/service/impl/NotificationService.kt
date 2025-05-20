@@ -1,19 +1,27 @@
-package com.kdiachenko.aem.filevault.integration.service
+package com.kdiachenko.aem.filevault.integration.service.impl
 
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
+import com.kdiachenko.aem.filevault.integration.service.INotificationService
 
 /**
  * Service for displaying notifications to users
  */
-object NotificationService {
-    private const val GROUP_ID = "AEM VLT Notifications"
+open class NotificationService(val project: Project): INotificationService {
 
+    companion object {
+        private const val GROUP_ID = "AEM VLT Notifications"
+
+        @JvmStatic
+        fun getInstance(project: Project): INotificationService {
+            return project.getService(INotificationService::class.java)
+        }
+    }
     /**
      * Show information notification
      */
-    fun showInfo(project: Project?, title: String, content: String) {
+    override fun showInfo(title: String, content: String) {
         NotificationGroupManager.getInstance()
             .getNotificationGroup(GROUP_ID)
             .createNotification(content, NotificationType.INFORMATION)
@@ -24,21 +32,10 @@ object NotificationService {
     /**
      * Show error notification
      */
-    fun showError(project: Project?, title: String, content: String) {
+    override fun showError(title: String, content: String) {
         NotificationGroupManager.getInstance()
             .getNotificationGroup(GROUP_ID)
             .createNotification(content, NotificationType.ERROR)
-            .setTitle(title)
-            .notify(project)
-    }
-
-    /**
-     * Show warning notification
-     */
-    fun showWarning(project: Project?, title: String, content: String) {
-        NotificationGroupManager.getInstance()
-            .getNotificationGroup(GROUP_ID)
-            .createNotification(content, NotificationType.WARNING)
             .setTitle(title)
             .notify(project)
     }

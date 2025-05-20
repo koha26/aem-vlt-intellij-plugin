@@ -6,10 +6,8 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.Messages
 import com.kdiachenko.aem.filevault.integration.facade.impl.FileVaultFacade
-import com.kdiachenko.aem.filevault.integration.service.NotificationService
+import com.kdiachenko.aem.filevault.integration.service.impl.NotificationService
 
 /**
  * Action to push content to AEM repository
@@ -34,11 +32,12 @@ class PushAction : BaseOperationAction() {
                 val operationResult = result.get()
 
                 ApplicationManager.getApplication().invokeLater {
+                    val notificationService = NotificationService.getInstance(project)
                     if (operationResult.success) {
                         operationResult.entries.forEach { logger.debug("Pushed: $it") }
-                        NotificationService.showInfo(project, "Push Successful", operationResult.message)
+                        notificationService.showInfo("Push Successful", operationResult.message)
                     } else {
-                        NotificationService.showError(project, "Push Failed", operationResult.message)
+                        notificationService.showError("Push Failed", operationResult.message)
                     }
                 }
             }

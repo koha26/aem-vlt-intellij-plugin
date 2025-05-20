@@ -1,13 +1,15 @@
 package com.kdiachenko.aem.filevault.integration.facade.impl
 
-import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
 import com.kdiachenko.aem.filevault.integration.dto.*
 import com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade
 import com.kdiachenko.aem.filevault.integration.listener.OperationProgressTrackerListener
-import com.kdiachenko.aem.filevault.integration.service.*
+import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
+import com.kdiachenko.aem.filevault.integration.service.IFileSystemService
+import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
+import com.kdiachenko.aem.filevault.integration.service.IVaultOperationService
 import com.kdiachenko.aem.filevault.integration.service.impl.FileSystemService
 import com.kdiachenko.aem.filevault.integration.service.impl.MetaInfService
 import com.kdiachenko.aem.filevault.integration.service.impl.VaultOperationService
@@ -23,16 +25,15 @@ import kotlin.io.path.absolutePathString
 /**
  * Service for handling FileVault operations (push/pull)
  */
-@Service(Service.Level.PROJECT)
-class FileVaultFacade : IFileVaultFacade {
+open class FileVaultFacade : IFileVaultFacade {
     private val logger = Logger.getInstance(FileVaultFacade::class.java)
 
     companion object {
         private const val JCR_ROOT = "jcr_root"
 
         @JvmStatic
-        fun getInstance(project: Project): FileVaultFacade {
-            return project.getService(FileVaultFacade::class.java)
+        fun getInstance(project: Project): IFileVaultFacade {
+            return project.getService(IFileVaultFacade::class.java)
         }
     }
 
