@@ -1,29 +1,34 @@
 package com.kdiachenko.aem.filevault.settings.service
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
+import com.kdiachenko.aem.filevault.integration.service.impl.MetaInfService
+import org.junit.jupiter.api.BeforeEach
 
 class CredentialsManagerTest : BasePlatformTestCase() {
 
     private val testId = "test-server-id"
     private val testUsername = "test-username"
     private val testPassword = "test-password"
+    private lateinit var service: CredentialsManager
 
     public override fun setUp() {
         super.setUp()
+        service = CredentialsManager.getInstance()
 
-        CredentialsManager.remove(testId)
+        service.remove(testId)
     }
 
     public override fun tearDown() {
-        CredentialsManager.remove(testId)
+        service.remove(testId)
 
         super.tearDown()
     }
 
     fun testAddAndGet() {
-        CredentialsManager.add(testId, testUsername, testPassword)
+        service.add(testId, testUsername, testPassword)
 
-        val credentials = CredentialsManager.get(testId)
+        val credentials = service.get(testId)
 
         assertNotNull(credentials)
         assertEquals(testUsername, credentials?.userName)
@@ -31,21 +36,21 @@ class CredentialsManagerTest : BasePlatformTestCase() {
     }
 
     fun testRemove() {
-        CredentialsManager.add(testId, testUsername, testPassword)
+        service.add(testId, testUsername, testPassword)
 
-        val credentials = CredentialsManager.get(testId)
+        val credentials = service.get(testId)
         assertNotNull(credentials)
 
-        CredentialsManager.remove(testId)
+        service.remove(testId)
 
-        val removedCredentials = CredentialsManager.get(testId)
+        val removedCredentials = service.get(testId)
         assertNull(removedCredentials)
     }
 
     fun testGetAsync() {
-        CredentialsManager.add(testId, testUsername, testPassword)
+        service.add(testId, testUsername, testPassword)
 
-        val credentialsPromise = CredentialsManager.getAsync(testId)
+        val credentialsPromise = service.getAsync(testId)
         val credentials = credentialsPromise.blockingGet(5000)
 
         assertNotNull(credentials)
@@ -54,24 +59,24 @@ class CredentialsManagerTest : BasePlatformTestCase() {
     }
 
     fun testGetNonExistentCredentials() {
-        val credentials = CredentialsManager.get("non-existent-id")
+        val credentials = service.get("non-existent-id")
 
         assertNull(credentials)
     }
 
     fun testUpdateCredentials() {
-        CredentialsManager.add(testId, testUsername, testPassword)
+        service.add(testId, testUsername, testPassword)
 
-        val initialCredentials = CredentialsManager.get(testId)
+        val initialCredentials = service.get(testId)
         assertNotNull(initialCredentials)
         assertEquals(testUsername, initialCredentials?.userName)
         assertEquals(testPassword, initialCredentials?.getPasswordAsString())
 
         val updatedUsername = "updated-username"
         val updatedPassword = "updated-password"
-        CredentialsManager.add(testId, updatedUsername, updatedPassword)
+        service.add(testId, updatedUsername, updatedPassword)
 
-        val updatedCredentials = CredentialsManager.get(testId)
+        val updatedCredentials = service.get(testId)
         assertNotNull(updatedCredentials)
         assertEquals(updatedUsername, updatedCredentials?.userName)
         assertEquals(updatedPassword, updatedCredentials?.getPasswordAsString())

@@ -27,7 +27,7 @@ abstract class BaseOperationAction : AnAction() {
 
     override fun update(e: AnActionEvent) {
         val project = e.project
-        val virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE)
+        val virtualFile = getSelectedFile(e)
 
         e.presentation.isEnabledAndVisible = project != null && virtualFile != null && virtualFile.inUnderJcrRoot()
         e.presentation.icon = getIcon()

@@ -1,4 +1,3 @@
-<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>com.kdiachenko.aem-vlt-tool</id>
     <name>AEM VLT Tool</name>
@@ -26,6 +25,14 @@
                         serviceInterface="com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade"/>
         <projectService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.NotificationService"
                         serviceInterface="com.kdiachenko.aem.filevault.integration.service.INotificationService"/>
+        <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.FileSystemService"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.service.IFileSystemService"/>
+        <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.MetaInfService"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.service.IMetaInfService"/>
+        <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.VaultOperationService"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.service.IVaultOperationService"/>
+        <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.factory.impl.VaultAppFactory"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.factory.IVaultAppFactory"/>
 
         <!-- Notification group -->
         <notificationGroup id="AEM VLT Notifications"

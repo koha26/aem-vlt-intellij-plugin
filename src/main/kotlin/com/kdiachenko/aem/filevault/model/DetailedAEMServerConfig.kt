@@ -16,7 +16,7 @@ fun AEMServerConfig.toLazyDetailed(): DetailedAEMServerConfig {
     val detailedAEMServerConfig = DetailedAEMServerConfig(
         id, name, url, isDefault
     )
-    CredentialsManager.getAsync(id).onSuccess {
+    CredentialsManager.getInstance().getAsync(id).onSuccess {
         detailedAEMServerConfig.username = it?.userName ?: ""
         detailedAEMServerConfig.password = it?.getPasswordAsString() ?: ""
     }
@@ -24,7 +24,7 @@ fun AEMServerConfig.toLazyDetailed(): DetailedAEMServerConfig {
 }
 
 fun AEMServerConfig.toDetailed(): DetailedAEMServerConfig {
-    val credentials = CredentialsManager.get(id)
+    val credentials = CredentialsManager.getInstance().get(id)
     val detailedAEMServerConfig = DetailedAEMServerConfig(
         id, name, url, isDefault,
         credentials?.userName ?: "", credentials?.getPasswordAsString() ?: ""

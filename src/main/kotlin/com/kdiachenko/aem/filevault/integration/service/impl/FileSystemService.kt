@@ -1,5 +1,6 @@
 package com.kdiachenko.aem.filevault.integration.service.impl
 
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
@@ -11,8 +12,15 @@ import java.util.*
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.exists
 
-object FileSystemService : IFileSystemService {
+class FileSystemService : IFileSystemService {
     private val logger = Logger.getInstance(FileSystemService::class.java)
+
+    companion object {
+        @JvmStatic
+        fun getInstance(): IFileSystemService {
+            return service()
+        }
+    }
 
     override fun createTempDirectory(): Path {
         return createTempDirectory("aem-filevault-${UUID.randomUUID()}")

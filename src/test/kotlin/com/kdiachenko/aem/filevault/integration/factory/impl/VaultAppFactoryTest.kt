@@ -24,7 +24,7 @@ class VaultAppFactoryTest {
             serverConfig = serverConfig
         )
 
-        val vaultApp = VaultAppFactory.createVaultApp(context)
+        val vaultApp = VaultAppFactory.getInstance().createVaultApp(context)
 
         assertNotNull(vaultApp)
         assertEquals(CustomizedVaultFsApp::class.java, vaultApp.javaClass)

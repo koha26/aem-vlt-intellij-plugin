@@ -70,11 +70,12 @@ class AEMServerSettingsPanel() : SettingsPanel {
     override fun save() {
         val newAEMServers = tableModelEditor.apply()
 
+        val credentialsManager = CredentialsManager.getInstance()
         val newState = state()
-        newState.configuredServers.forEach { CredentialsManager.remove(it.id) }
+        newState.configuredServers.forEach { credentialsManager.remove(it.id) }
         newState.clearConfiguredServers()
         newAEMServers.forEach {
-            CredentialsManager.add(it.id, it.username, it.password)
+            credentialsManager.add(it.id, it.username, it.password)
             newState.addServer(AEMServerConfig(it.id, it.name, it.url))
         }
 

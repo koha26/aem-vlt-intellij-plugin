@@ -4,11 +4,21 @@ import com.intellij.credentialStore.CredentialAttributes
 import com.intellij.credentialStore.Credentials
 import com.intellij.credentialStore.generateServiceName
 import com.intellij.ide.passwordSafe.PasswordSafe
+import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import org.jetbrains.concurrency.Promise
 
-object CredentialsManager {
+@Service
+class CredentialsManager {
 
-    private val passwordSafe = PasswordSafe.Companion.instance
+    companion object {
+        private val passwordSafe = PasswordSafe.Companion.instance
+
+        @JvmStatic
+        fun getInstance(): CredentialsManager {
+            return service<CredentialsManager>()
+        }
+    }
 
     fun get(id: String): Credentials? {
         val key = generateKey(id)

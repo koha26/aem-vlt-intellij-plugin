@@ -1,5 +1,6 @@
 package com.kdiachenko.aem.filevault.integration.service.impl
 
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.kdiachenko.aem.filevault.integration.CustomizedVaultFsApp
 import com.kdiachenko.aem.filevault.integration.dto.VltOperationContext
@@ -12,8 +13,16 @@ import org.apache.jackrabbit.vault.fs.io.*
 /**
  * Service for executing Vault operations with the Vault FS App.
  */
-object VaultOperationService : IVaultOperationService {
+class VaultOperationService : IVaultOperationService {
     private val logger = Logger.getInstance(VaultOperationService::class.java)
+    private val vaultAppFactory: IVaultAppFactory = VaultAppFactory.getInstance()
+
+    companion object {
+        @JvmStatic
+        fun getInstance(): IVaultOperationService {
+            return service()
+        }
+    }
 
     override fun export(context: VltOperationContext) {
         executeVaultCommand {
@@ -130,5 +139,4 @@ object VaultOperationService : IVaultOperationService {
         }
     }
 
-    private val vaultAppFactory: IVaultAppFactory = VaultAppFactory
 }

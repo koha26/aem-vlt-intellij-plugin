@@ -27,6 +27,9 @@ import kotlin.io.path.absolutePathString
  */
 open class FileVaultFacade : IFileVaultFacade {
     private val logger = Logger.getInstance(FileVaultFacade::class.java)
+    private val fileSystemService: IFileSystemService = FileSystemService.getInstance()
+    private val metaInfService: IMetaInfService = MetaInfService.getInstance()
+    private val vaultOperationService: IVaultOperationService = VaultOperationService.getInstance()
 
     companion object {
         private const val JCR_ROOT = "jcr_root"
@@ -277,11 +280,6 @@ open class FileVaultFacade : IFileVaultFacade {
         message = message,
         entries = emptyList()
     )
-
-
-    private val fileSystemService: IFileSystemService = FileSystemService
-    private val metaInfService: IMetaInfService = MetaInfService
-    private val vaultOperationService: IVaultOperationService = VaultOperationService
 
     private fun ProgressIndicator?.progress(text: String, fraction: Double) {
         this?.text = text

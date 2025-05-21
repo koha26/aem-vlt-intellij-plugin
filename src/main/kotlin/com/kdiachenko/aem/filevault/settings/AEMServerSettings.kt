@@ -34,7 +34,7 @@ class AEMServerSettingsState(
             isDefault = true
         )
         configuredServers.add(defaultConfig)
-        CredentialsManager.add(defaultConfig.id, "admin", "admin")
+        CredentialsManager.getInstance().add(defaultConfig.id, "admin", "admin")
     }
 
     fun addServer(server: AEMServerConfig) {

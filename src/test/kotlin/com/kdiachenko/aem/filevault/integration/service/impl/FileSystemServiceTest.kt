@@ -2,7 +2,9 @@ package com.kdiachenko.aem.filevault.integration.service.impl
 
 import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
+import com.kdiachenko.aem.filevault.integration.service.IFileSystemService
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -14,16 +16,23 @@ class FileSystemServiceTest {
     @JvmField
     var tempFolder: Path? = null
 
+    lateinit var service: IFileSystemService
+
+    @BeforeEach
+    fun setUp() {
+        service = FileSystemService.getInstance()
+    }
+
     @Test
     fun testCreateTempDirectory() {
-        val tempDir = FileSystemService.createTempDirectory()
+        val tempDir = service.createTempDirectory()
 
         try {
             assertTrue(Files.exists(tempDir))
             assertTrue(Files.isDirectory(tempDir))
             assertTrue(tempDir.toString().contains("aem-filevault-"))
         } finally {
-            FileSystemService.deleteDirectory(tempDir)
+            service.deleteDirectory(tempDir)
         }
     }
 
@@ -39,7 +48,7 @@ class FileSystemServiceTest {
         val file2 = subDir.resolve("file2.txt")
         Files.write(file2, "test content in subdir".toByteArray())
 
-        FileSystemService.deleteDirectory(tempDir)
+        service.deleteDirectory(tempDir)
 
         assertFalse(Files.exists(tempDir))
         assertFalse(Files.exists(subDir))
@@ -60,7 +69,7 @@ class FileSystemServiceTest {
             val targetFile = targetDir.resolve("test.txt")
             val tracker = FileChangeTracker()
 
-            FileSystemService.copyFile(sourceFile, targetFile, tracker)
+            service.copyFile(sourceFile, targetFile, tracker)
 
             assertTrue(Files.exists(targetFile))
             assertEquals("test content", String(Files.readAllBytes(targetFile)))
@@ -68,8 +77,8 @@ class FileSystemServiceTest {
             assertEquals(OperationAction.ADDED, tracker.changes[0].action)
             assertEquals(targetFile.toString(), tracker.changes[0].path)
         } finally {
-            FileSystemService.deleteDirectory(sourceDir)
-            FileSystemService.deleteDirectory(targetDir)
+            service.deleteDirectory(sourceDir)
+            service.deleteDirectory(targetDir)
         }
     }
 
@@ -87,16 +96,16 @@ class FileSystemServiceTest {
             Files.write(targetFile, "another content".toByteArray())
             val tracker = FileChangeTracker()
 
-            FileSystemService.copyFile(sourceFile, targetFile, tracker)
+            service.copyFile(sourceFile, targetFile, tracker)
             Files.write(sourceFile, "modified content".toByteArray())
-            FileSystemService.copyFile(sourceFile, targetFile, tracker)
+            service.copyFile(sourceFile, targetFile, tracker)
 
             assertEquals("modified content", String(Files.readAllBytes(targetFile)))
             assertEquals(2, tracker.changes.size)
             assertEquals(OperationAction.UPDATED, tracker.changes[1].action)
         } finally {
-            FileSystemService.deleteDirectory(sourceDir)
-            FileSystemService.deleteDirectory(targetDir)
+            service.deleteDirectory(sourceDir)
+            service.deleteDirectory(targetDir)
         }
     }
 
@@ -112,14 +121,14 @@ class FileSystemServiceTest {
             Files.write(sourceFile, "initial content".toByteArray())
             val tracker = FileChangeTracker()
 
-            FileSystemService.copyFile(sourceFile, sourceFile, tracker)
+            service.copyFile(sourceFile, sourceFile, tracker)
 
             assertEquals("initial content", String(Files.readAllBytes(sourceFile)))
             assertEquals(1, tracker.changes.size)
             assertEquals(OperationAction.NOTHING_CHANGED, tracker.changes[0].action)
         } finally {
-            FileSystemService.deleteDirectory(sourceDir)
-            FileSystemService.deleteDirectory(targetDir)
+            service.deleteDirectory(sourceDir)
+            service.deleteDirectory(targetDir)
         }
     }
 
@@ -139,7 +148,7 @@ class FileSystemServiceTest {
             Files.write(sourceFile2, "test content 2".toByteArray())
 
             val tracker = FileChangeTracker()
-            FileSystemService.copyDirectory(sourceDir, targetDir, tracker)
+            service.copyDirectory(sourceDir, targetDir, tracker)
 
             val targetSubDir = targetDir.resolve("subdir")
             val targetFile1 = targetDir.resolve("file1.txt")
@@ -152,8 +161,8 @@ class FileSystemServiceTest {
             assertEquals("test content 2", String(Files.readAllBytes(targetFile2)))
             assertTrue(tracker.changes.size >= 3)
         } finally {
-            FileSystemService.deleteDirectory(sourceDir)
-            FileSystemService.deleteDirectory(targetDir)
+            service.deleteDirectory(sourceDir)
+            service.deleteDirectory(targetDir)
         }
     }
 
@@ -168,17 +177,17 @@ class FileSystemServiceTest {
             val sourceFile = sourceDir.resolve("file.txt")
             Files.write(sourceFile, "initial content".toByteArray())
 
-            FileSystemService.copyDirectory(sourceDir, targetDir, FileChangeTracker())
+            service.copyDirectory(sourceDir, targetDir, FileChangeTracker())
             Files.write(sourceFile, "modified content".toByteArray())
 
             val tracker = FileChangeTracker()
-            FileSystemService.copyDirectory(sourceDir, targetDir, tracker)
+            service.copyDirectory(sourceDir, targetDir, tracker)
 
             assertEquals("modified content", String(Files.readAllBytes(targetDir.resolve("file.txt"))))
             assertTrue(tracker.changes.isNotEmpty())
         } finally {
-            FileSystemService.deleteDirectory(sourceDir)
-            FileSystemService.deleteDirectory(targetDir)
+            service.deleteDirectory(sourceDir)
+            service.deleteDirectory(targetDir)
         }
     }
 
@@ -193,17 +202,17 @@ class FileSystemServiceTest {
             val sourceFile = sourceDir.resolve("file.txt")
             Files.write(sourceFile, "test content".toByteArray())
 
-            FileSystemService.copyDirectory(sourceDir, targetDir, FileChangeTracker())
+            service.copyDirectory(sourceDir, targetDir, FileChangeTracker())
             Files.delete(sourceFile)
 
             val tracker = FileChangeTracker()
-            FileSystemService.copyDirectory(sourceDir, targetDir, tracker)
+            service.copyDirectory(sourceDir, targetDir, tracker)
 
             assertFalse(Files.exists(targetDir.resolve("file.txt")))
             assertTrue(tracker.changes.isNotEmpty())
         } finally {
-            FileSystemService.deleteDirectory(sourceDir)
-            FileSystemService.deleteDirectory(targetDir)
+            service.deleteDirectory(sourceDir)
+            service.deleteDirectory(targetDir)
         }
     }
 }

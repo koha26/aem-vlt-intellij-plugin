@@ -1,5 +1,6 @@
 package com.kdiachenko.aem.filevault.integration.service.impl
 
+import com.intellij.openapi.components.service
 import com.kdiachenko.aem.filevault.integration.dto.VltFilter
 import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
 import java.nio.file.Files
@@ -8,7 +9,14 @@ import java.nio.file.Path
 /**
  * Implementation of MetaInfService
  */
-object MetaInfService : IMetaInfService {
+class MetaInfService : IMetaInfService {
+
+    companion object {
+        @JvmStatic
+        fun getInstance(): IMetaInfService {
+            return service()
+        }
+    }
 
     override fun createFilterXml(tmpDir: Path, vltFilter: VltFilter) {
         val metaInfDir = tmpDir.resolve("META-INF/vault")

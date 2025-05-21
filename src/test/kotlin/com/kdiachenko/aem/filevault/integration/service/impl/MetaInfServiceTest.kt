@@ -1,7 +1,9 @@
 package com.kdiachenko.aem.filevault.integration.service.impl
 
 import com.kdiachenko.aem.filevault.integration.dto.VltFilter
+import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -14,6 +16,12 @@ class MetaInfServiceTest {
     var tempFolder: Path? = null
 
     private lateinit var tempDir: Path
+    private lateinit var service: IMetaInfService
+
+    @BeforeEach
+    fun setUp() {
+        service = MetaInfService.getInstance()
+    }
 
     @Test
     fun testCreateFilterXmlWithoutModeAndPatterns() {
@@ -80,7 +88,7 @@ class MetaInfServiceTest {
     private fun createAndVerifyFilterXml(filter: VltFilter, expectedContent: String) {
         val tempDir = tempFolder ?: throw Exception("Temp dir is null")
         try {
-            MetaInfService.createFilterXml(tempDir, filter)
+            service.createFilterXml(tempDir, filter)
 
             val metaInfDir = tempDir.resolve("META-INF/vault")
             assertTrue(Files.exists(metaInfDir))
