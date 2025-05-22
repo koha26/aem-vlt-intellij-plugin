@@ -1,72 +1,206 @@
 package com.kdiachenko.aem.filevault.actions
 
+import com.intellij.openapi.actionSystem.ActionPlaces
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.DataContext
+import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.registerServiceInstance
+import com.intellij.util.application
+import com.kdiachenko.aem.filevault.integration.dto.DetailedOperationResult
+import com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade
+import com.kdiachenko.aem.filevault.integration.facade.impl.FileVaultFacadeStub
+import com.kdiachenko.aem.filevault.integration.service.INotificationService
+import com.kdiachenko.aem.filevault.integration.service.impl.NotificationEntry
+import com.kdiachenko.aem.filevault.integration.service.impl.NotificationServiceStub
+import com.kdiachenko.aem.filevault.model.AEMServerConfig
+import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
+import com.kdiachenko.aem.filevault.settings.AEMServerSettings
+import java.io.File
+import java.util.concurrent.CompletableFuture
 
 class PushActionTest : BasePlatformTestCase() {
 
     private lateinit var pushAction: PushAction
-    private lateinit var testVirtualFile: TestVirtualFile
+    private lateinit var fileVaultFacadeStub: FileVaultFacadeStub
+    private lateinit var serverSettings: AEMServerSettings
+    private val testServer = AEMServerConfig(
+        id = "test-id",
+        name = "Test Server",
+        url = "http://localhost:4502",
+        isDefault = false
+    )
+
+    override fun getTestDataPath() = "src/test/testData/com/kdiachenko/aem/filevault/actions/push"
 
     public override fun setUp() {
         super.setUp()
-
-        // Create a PushAction instance
+        setupFileVaultFacade()
+        setupServerSettings()
         pushAction = PushAction()
-
-        // Create a test virtual file
-        testVirtualFile = TestVirtualFile("content/test/file.txt")
     }
 
-    fun testGetIcon() {
-        // Test that getIcon returns the expected icon
+    fun testIcon() {
         val icon = pushAction.getIcon()
+
         assertNotNull(icon)
-        // We can't easily compare icons, but we can at least verify it's not null
+        assertEquals(com.intellij.icons.AllIcons.Vcs.Push, icon)
     }
 
     fun testActionUpdateThread() {
-        // Test that getActionUpdateThread returns the expected thread
-        val thread = pushAction.getActionUpdateThread()
-        assertNotNull(thread)
+        assertEquals(ActionUpdateThread.BGT, pushAction.actionUpdateThread)
     }
 
-    /**
-     * Test implementation of VirtualFile for testing
-     */
-    private class TestVirtualFile(private val filePath: String) : VirtualFile() {
-        override fun getName(): String = filePath.substringAfterLast('/')
+    fun testActionPerformedOnFile() {
+        setupTestFiles()
+        val action = createAnActionEvent()
+        pushAction.actionPerformed(action)
 
-        override fun getFileSystem() = throw UnsupportedOperationException("Not implemented")
+        assertEquals(1, fileVaultFacadeStub.importedFiles.size)
+        assertEquals(
+            "/src/content/jcr_root/content/project/en/.content.xml",
+            fileVaultFacadeStub.importedFiles[0]
+        )
+    }
 
-        override fun getPath(): String = filePath
+    fun testActionPerformedOnFolder() {
+        setupTestFiles()
+        val file = myFixture.file.virtualFile.parent
+        val action = createAnActionEvent(file)
+        pushAction.actionPerformed(action)
 
-        override fun isWritable() = true
+        assertEquals(1, fileVaultFacadeStub.importedFiles.size)
+        assertEquals("/src/content/jcr_root/content/project/en", fileVaultFacadeStub.importedFiles[0])
+    }
 
-        override fun isDirectory() = false
+    fun testUpdateWithFileUnderJcrRoot() {
+        setupTestFiles()
+        val action = createAnActionEvent()
+        pushAction.update(action)
 
-        override fun isValid() = true
+        assertTrue(action.presentation.isEnabledAndVisible)
+        assertEquals(com.intellij.icons.AllIcons.Vcs.Push, action.presentation.icon)
+    }
 
-        override fun getParent() = null
+    fun testUpdateWithFileNotUnderJcrRoot() {
+        myFixture.copyDirectoryToProject(
+            "common/en",
+            "content/content/project/en"
+        )
+        myFixture.configureByFile("content/content/project/en/.content.xml")
+        val action = createAnActionEvent()
+        pushAction.update(action)
 
-        override fun getChildren() = emptyArray<VirtualFile>()
+        assertFalse(action.presentation.isEnabledAndVisible)
+    }
 
-        override fun getOutputStream(requestor: Any?, newModificationStamp: Long, newTimeStamp: Long) =
-            throw UnsupportedOperationException("Not implemented")
+    fun testSuccessNotification() {
+        val notificationServiceStub = setupNotificationService()
+        setupTestFiles()
 
-        override fun contentsToByteArray() = ByteArray(0)
+        val action = createAnActionEvent()
+        pushAction.actionPerformed(action)
 
-        override fun getTimeStamp() = 0L
-
-        override fun getLength() = 0L
-
-        override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) {}
-
-        override fun getInputStream() = throw UnsupportedOperationException("Not implemented")
-
-        // Helper method to simulate JcrPathUtil.toJcrPath
-        fun toJcrPath(): String? {
-            return if (path.contains("content/")) "/content/${path.substringAfter("content/")}" else null
+        PlatformTestUtil.waitWhileBusy {
+            notificationServiceStub.info.isEmpty() && notificationServiceStub.error.isEmpty()
         }
+
+        assertNotification(
+            listOf(
+                NotificationEntry("Push Successful", "Imported")
+            ),
+            notificationServiceStub.info
+        )
     }
+
+    fun testFailNotification() {
+        val notificationServiceStub = setupNotificationService()
+        setupFailingFileVaultFacade()
+        setupTestFiles()
+
+        val action = createAnActionEvent()
+        pushAction.actionPerformed(action)
+
+        PlatformTestUtil.waitWhileBusy {
+            notificationServiceStub.info.isEmpty() && notificationServiceStub.error.isEmpty()
+        }
+
+        assertNotification(
+            listOf(
+                NotificationEntry("Push Failed", "Failure message")
+            ),
+            notificationServiceStub.error
+        )
+    }
+
+    private fun setupNotificationService(): NotificationServiceStub {
+        val notificationServiceStub = NotificationServiceStub()
+        project.registerServiceInstance(INotificationService::class.java, notificationServiceStub)
+        return notificationServiceStub
+    }
+
+    private fun setupFailingFileVaultFacade() {
+        fileVaultFacadeStub = object : FileVaultFacadeStub() {
+            override fun importContent(
+                serverConfig: DetailedAEMServerConfig,
+                projectLocalFile: File,
+                indicator: ProgressIndicator
+            ): CompletableFuture<DetailedOperationResult> {
+                return CompletableFuture.supplyAsync {
+                    DetailedOperationResult(false, "Failure message", listOf())
+                }
+            }
+        }
+        project.registerServiceInstance(IFileVaultFacade::class.java, fileVaultFacadeStub)
+    }
+
+    private fun assertNotification(
+        expectedNotificationEntries: List<NotificationEntry>,
+        actualNotificationEntries: List<NotificationEntry>
+    ) {
+        assertEquals(expectedNotificationEntries.size, actualNotificationEntries.size)
+        assertEquals(expectedNotificationEntries, actualNotificationEntries)
+    }
+
+    private fun setupFileVaultFacade() {
+        fileVaultFacadeStub = FileVaultFacadeStub()
+        project.registerServiceInstance(IFileVaultFacade::class.java, fileVaultFacadeStub)
+    }
+
+    private fun setupServerSettings() {
+        serverSettings = AEMServerSettings()
+        serverSettings.state.addServer(testServer)
+        application.registerServiceInstance(AEMServerSettings::class.java, serverSettings)
+    }
+
+    private fun setupTestFiles() {
+        myFixture.copyDirectoryToProject(
+            "common/en",
+            "content/jcr_root/content/project/en"
+        )
+        myFixture.configureByFile("content/jcr_root/content/project/en/.content.xml")
+    }
+
+    fun createAnActionEvent(): AnActionEvent =
+        AnActionEvent.createFromDataContext(ActionPlaces.PROJECT_VIEW_POPUP, null, createDataContext())
+
+    fun createAnActionEvent(virtualFile: VirtualFile): AnActionEvent =
+        AnActionEvent.createFromDataContext(ActionPlaces.PROJECT_VIEW_POPUP, null, createDataContext(virtualFile))
+
+    fun createDataContext(): DataContext =
+        createDataContext(myFixture.file.virtualFile)
+
+    fun createDataContext(virtualFile: VirtualFile): DataContext =
+        DataContext {
+            when (it) {
+                CommonDataKeys.PROJECT.name -> myFixture.project
+                CommonDataKeys.EDITOR.name -> myFixture.editor
+                CommonDataKeys.VIRTUAL_FILE.name -> virtualFile
+                else -> null
+            }
+        }
 }

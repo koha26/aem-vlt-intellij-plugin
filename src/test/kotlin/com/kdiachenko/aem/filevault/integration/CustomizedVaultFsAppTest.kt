@@ -40,7 +40,7 @@ class CustomizedVaultFsAppTest {
         assertNotNull(credentials)
 
         val file = app.getPlatformFile("test.txt", false)
-        assertEquals(File(localPath, "test.txt"), file)
+        assertEquals(File(localPath, "test.txt").absolutePath, file.absolutePath)
     }
 
     @Test

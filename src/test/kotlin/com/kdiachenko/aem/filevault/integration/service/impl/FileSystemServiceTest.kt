@@ -10,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 
+
 class FileSystemServiceTest {
 
     @TempDir
@@ -20,7 +21,7 @@ class FileSystemServiceTest {
 
     @BeforeEach
     fun setUp() {
-        service = FileSystemService.getInstance()
+        service = FileSystemService()
     }
 
     @Test

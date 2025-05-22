@@ -1,9 +1,6 @@
 package com.kdiachenko.aem.filevault.settings.service
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
-import com.kdiachenko.aem.filevault.integration.service.impl.MetaInfService
-import org.junit.jupiter.api.BeforeEach
 
 class CredentialsManagerTest : BasePlatformTestCase() {
 

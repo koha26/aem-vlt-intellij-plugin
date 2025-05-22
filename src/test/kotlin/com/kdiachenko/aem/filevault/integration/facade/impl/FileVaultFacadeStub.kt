@@ -1,13 +1,15 @@
 package com.kdiachenko.aem.filevault.integration.facade.impl
 
 import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.util.io.FileUtil
 import com.kdiachenko.aem.filevault.integration.dto.DetailedOperationResult
 import com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
+import com.kdiachenko.aem.filevault.util.JcrPathUtil.toJcrPath
 import java.io.File
 import java.util.concurrent.CompletableFuture
 
-class FileVaultFacadeStub : IFileVaultFacade {
+open class FileVaultFacadeStub : IFileVaultFacade {
     val importedFiles = mutableListOf<String>()
     val exportedFiles = mutableListOf<String>()
 
@@ -17,7 +19,7 @@ class FileVaultFacadeStub : IFileVaultFacade {
         indicator: ProgressIndicator
     ): CompletableFuture<DetailedOperationResult> {
         return CompletableFuture.supplyAsync {
-            exportedFiles.add(projectLocalFile.path)
+            exportedFiles.add(FileUtil.normalize(projectLocalFile.path))
             return@supplyAsync DetailedOperationResult(true, "Exported", listOf())
         }
     }
@@ -28,7 +30,7 @@ class FileVaultFacadeStub : IFileVaultFacade {
         indicator: ProgressIndicator
     ): CompletableFuture<DetailedOperationResult> {
         return CompletableFuture.supplyAsync {
-            importedFiles.add(projectLocalFile.path)
+            importedFiles.add(FileUtil.normalize(projectLocalFile.path))
             return@supplyAsync DetailedOperationResult(true, "Imported", listOf())
         }
     }

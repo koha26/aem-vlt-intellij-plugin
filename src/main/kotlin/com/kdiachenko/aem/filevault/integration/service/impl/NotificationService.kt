@@ -8,16 +8,17 @@ import com.kdiachenko.aem.filevault.integration.service.INotificationService
 /**
  * Service for displaying notifications to users
  */
-open class NotificationService(val project: Project): INotificationService {
+open class NotificationService(val project: Project) : INotificationService {
 
     companion object {
-        private const val GROUP_ID = "AEM VLT Notifications"
+        const val GROUP_ID = "AEM VLT Notifications"
 
         @JvmStatic
         fun getInstance(project: Project): INotificationService {
             return project.getService(INotificationService::class.java)
         }
     }
+
     /**
      * Show information notification
      */

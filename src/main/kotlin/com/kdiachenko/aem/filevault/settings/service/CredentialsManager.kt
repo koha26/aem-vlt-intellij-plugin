@@ -12,7 +12,6 @@ import org.jetbrains.concurrency.Promise
 class CredentialsManager {
 
     companion object {
-        private val passwordSafe = PasswordSafe.Companion.instance
 
         @JvmStatic
         fun getInstance(): CredentialsManager {
@@ -22,23 +21,23 @@ class CredentialsManager {
 
     fun get(id: String): Credentials? {
         val key = generateKey(id)
-        return passwordSafe.get(key)
+        return PasswordSafe.instance.get(key)
     }
 
     fun getAsync(id: String): Promise<Credentials?> {
         val key = generateKey(id)
-        return passwordSafe.getAsync(key)
+        return PasswordSafe.instance.getAsync(key)
     }
 
     fun add(id: String, username: String, password: String) {
         val key = generateKey(id)
         val value = Credentials(username, password)
-        passwordSafe.set(key, value)
+        PasswordSafe.instance.set(key, value)
     }
 
     fun remove(id: String) {
         val key = generateKey(id)
-        passwordSafe.set(key, null)
+        PasswordSafe.instance.set(key, null)
     }
 
     private fun generateKey(id: String) =
