@@ -11,7 +11,7 @@ class VaultOperationServiceTest {
 
     @BeforeEach
     fun setUp() {
-        service = VaultOperationService()
+        //service = VaultOperationService()
     }
 
     @Test

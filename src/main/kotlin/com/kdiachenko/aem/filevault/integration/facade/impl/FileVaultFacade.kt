@@ -250,10 +250,10 @@ open class FileVaultFacade : IFileVaultFacade {
         return VltFilter(normalizedJcrPath)
     }
 
-    private fun List<OperationEntryDetail>.filterOutNothingChanged(): List<OperationEntryDetail> =
+    protected fun List<OperationEntryDetail>.filterOutNothingChanged(): List<OperationEntryDetail> =
         this.filter { OperationAction.NOTHING_CHANGED != it.action }
 
-    private fun createDetailedResult(operationEntries: List<OperationEntryDetail>): String {
+    protected fun createDetailedResult(operationEntries: List<OperationEntryDetail>): String {
         val updated = operationEntries.filter { OperationAction.UPDATED == it.action }
         val removed = operationEntries.filter { OperationAction.DELETED == it.action }
         val added = operationEntries.filter { OperationAction.ADDED == it.action }
