@@ -97,7 +97,7 @@ open class FileVaultFacade : IFileVaultFacade {
 
             return@supplyAsync result
         } catch (e: Exception) {
-            logger.error("Error during content export", e)
+            //logger.error("Error during content export", e)
             return@supplyAsync failed("Error: ${e.message}")
         } finally {
             cleanup(tmpDir)
@@ -127,7 +127,7 @@ open class FileVaultFacade : IFileVaultFacade {
                 logger.info("Successfully copied file from $exportedContentPath to $targetPath")
             }
 
-            else -> logger.warn("No content was exported from $jcrPath")
+            else -> logger.info("No content was exported from $jcrPath")
         }
 
         return fileChangeTracker
@@ -191,7 +191,7 @@ open class FileVaultFacade : IFileVaultFacade {
 
             return@supplyAsync result
         } catch (e: Exception) {
-            logger.error("Error during content import", e)
+            //logger.error("Error during content import", e)
             return@supplyAsync failed("Error: ${e.message}")
         } finally {
             cleanup(tmpDir)
@@ -250,10 +250,10 @@ open class FileVaultFacade : IFileVaultFacade {
         return VltFilter(normalizedJcrPath)
     }
 
-    protected fun List<OperationEntryDetail>.filterOutNothingChanged(): List<OperationEntryDetail> =
+    fun List<OperationEntryDetail>.filterOutNothingChanged(): List<OperationEntryDetail> =
         this.filter { OperationAction.NOTHING_CHANGED != it.action }
 
-    protected fun createDetailedResult(operationEntries: List<OperationEntryDetail>): String {
+    fun createDetailedResult(operationEntries: List<OperationEntryDetail>): String {
         val updated = operationEntries.filter { OperationAction.UPDATED == it.action }
         val removed = operationEntries.filter { OperationAction.DELETED == it.action }
         val added = operationEntries.filter { OperationAction.ADDED == it.action }

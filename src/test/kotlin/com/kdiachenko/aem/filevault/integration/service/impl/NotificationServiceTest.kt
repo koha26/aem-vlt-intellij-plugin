@@ -4,7 +4,14 @@ import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.util.application
+import com.intellij.util.ui.UIUtil
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.time.Duration
+import kotlin.time.toDuration
+import kotlin.time.toDurationUnit
 
 class NotificationServiceTest : BasePlatformTestCase() {
 
@@ -21,8 +28,12 @@ class NotificationServiceTest : BasePlatformTestCase() {
             })
         }
 
-        val notificationService = NotificationService.getInstance(project)
-        notificationService.showInfo("Test title", "Test <b>content</b>")
+        application.invokeLater {
+            val notificationService = NotificationService.getInstance(project)
+            notificationService.showInfo("Test title", "Test <b>content</b>")
+        }
+
+        waitForCondition(10.toDuration(TimeUnit.SECONDS.toDurationUnit())) { shownNotification.get() != null }
 
         val notification = shownNotification.get()
         assertNotNull(notification)
@@ -44,14 +55,38 @@ class NotificationServiceTest : BasePlatformTestCase() {
             })
         }
 
-        val notificationService = NotificationService.getInstance(project)
-        notificationService.showError("Test title", "Test <b>content</b>")
+        application.invokeLater {
+            val notificationService = NotificationService.getInstance(project)
+            notificationService.showError("Test title", "Test <b>content</b>")
+        }
+
+        waitForCondition(10.toDuration(TimeUnit.SECONDS.toDurationUnit())) { shownNotification.get() != null }
 
         val notification = shownNotification.get()
         assertNotNull(notification)
         assertEquals("Test title", notification.title)
         assertEquals("Test <b>content</b>", notification.content)
         assertEquals(NotificationType.ERROR, notification.type)
+    }
+
+    @JvmSynthetic
+    @Throws(TimeoutException::class)
+    fun waitForCondition(timeout: Duration, condition: () -> Boolean) {
+        val timeoutMillis = timeout.inWholeMilliseconds
+        val deadline = System.currentTimeMillis() + timeoutMillis
+        var waitUnit = ((timeoutMillis + 9) / 10).coerceAtMost(10)
+        val isEdt = com.intellij.util.ui.EDT.isCurrentThreadEdt()
+        while (waitUnit > 0) {
+            if (isEdt) {
+                UIUtil.dispatchAllInvocationEvents()
+            }
+            if (condition()) {
+                return
+            }
+            Thread.sleep(waitUnit)
+            waitUnit = waitUnit.coerceAtMost(deadline - System.currentTimeMillis())
+        }
+        throw TimeoutException()
     }
 
 }

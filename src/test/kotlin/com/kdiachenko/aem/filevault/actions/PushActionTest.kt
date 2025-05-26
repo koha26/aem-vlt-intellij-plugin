@@ -10,13 +10,14 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.registerServiceInstance
+import com.intellij.testFramework.unregisterService
 import com.intellij.util.application
 import com.kdiachenko.aem.filevault.integration.dto.DetailedOperationResult
 import com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade
-import com.kdiachenko.aem.filevault.integration.facade.impl.FileVaultFacadeStub
+import com.kdiachenko.aem.filevault.stubs.FileVaultFacadeStub
 import com.kdiachenko.aem.filevault.integration.service.INotificationService
-import com.kdiachenko.aem.filevault.integration.service.impl.NotificationEntry
-import com.kdiachenko.aem.filevault.integration.service.impl.NotificationServiceStub
+import com.kdiachenko.aem.filevault.stubs.NotificationEntry
+import com.kdiachenko.aem.filevault.stubs.NotificationServiceStub
 import com.kdiachenko.aem.filevault.model.AEMServerConfig
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.settings.AEMServerSettings
@@ -77,6 +78,102 @@ class PushActionTest : BasePlatformTestCase() {
         assertEquals("/src/content/jcr_root/content/project/en", fileVaultFacadeStub.importedFiles[0])
     }
 
+    fun testActionPerformedOnFileWithNonDefaultServer() {
+        serverSettings = AEMServerSettings()
+        serverSettings.state.configuredServers.add(
+            AEMServerConfig(
+                id = "test-id-1",
+                name = "AEM Author",
+                url = "http://localhost:4502",
+                isDefault = false
+            )
+        )
+        serverSettings.state.configuredServers.add(
+            AEMServerConfig(
+                id = "test-id-2",
+                name = "AEM Publisher",
+                url = "http://localhost:4503",
+                isDefault = true
+            )
+        )
+        application.unregisterService(AEMServerSettings::class.java)
+        application.registerServiceInstance(AEMServerSettings::class.java, serverSettings)
+
+        setupTestFiles()
+        val action = createAnActionEvent()
+        pushAction.actionPerformed(action)
+
+        assertEquals(1, fileVaultFacadeStub.importedFiles.size)
+    }
+
+    fun testActionPerformedOnFileWithoutServer() {
+        serverSettings = AEMServerSettings()
+        application.unregisterService(AEMServerSettings::class.java)
+        application.registerServiceInstance(AEMServerSettings::class.java, serverSettings)
+
+        setupTestFiles()
+        val action = createAnActionEvent()
+
+        val exception = org.junit.jupiter.api.assertThrows<RuntimeException>({ pushAction.actionPerformed(action) })
+
+        assertEquals(0, fileVaultFacadeStub.exportedFiles.size)
+        assertEquals("No AEM servers configured. Please add servers in Settings | AEM FileVault Settings.", exception.message)
+    }
+
+    fun testActionPerformedOnFileWithMultipleServers() {
+        serverSettings = AEMServerSettings()
+        serverSettings.state.configuredServers.add(
+            AEMServerConfig(
+                id = "test-id-1",
+                name = "AEM Author",
+                url = "http://localhost:4502",
+                isDefault = false
+            )
+        )
+        serverSettings.state.configuredServers.add(
+            AEMServerConfig(
+                id = "test-id-2",
+                name = "AEM Publisher",
+                url = "http://localhost:4503",
+                isDefault = false
+            )
+        )
+        application.unregisterService(AEMServerSettings::class.java)
+        application.registerServiceInstance(AEMServerSettings::class.java, serverSettings)
+
+        setupTestFiles()
+        val action = createAnActionEvent()
+        val exception = org.junit.jupiter.api.assertThrows<RuntimeException> { pushAction.actionPerformed(action) }
+
+        assertEquals(0, fileVaultFacadeStub.exportedFiles.size)
+        assertEquals("No default AEM servers configured. Please mark desired server as default in Settings | AEM FileVault Settings.", exception.message)
+    }
+
+    fun testActionPerformedWithNullProject() {
+        setupTestFiles()
+        val action = createAnActionEvent(DataContext {
+            when (it) {
+                else -> null
+            }
+        })
+        pushAction.actionPerformed(action)
+
+        assertEquals(0, fileVaultFacadeStub.exportedFiles.size)
+    }
+
+    fun testActionPerformedWithNullVirtualFile() {
+        setupTestFiles()
+        val action = createAnActionEvent(DataContext {
+            when (it) {
+                CommonDataKeys.PROJECT.name -> myFixture.project
+                else -> null
+            }
+        })
+        pushAction.actionPerformed(action)
+
+        assertEquals(0, fileVaultFacadeStub.exportedFiles.size)
+    }
+
     fun testUpdateWithFileUnderJcrRoot() {
         setupTestFiles()
         val action = createAnActionEvent()
@@ -93,6 +190,39 @@ class PushActionTest : BasePlatformTestCase() {
         )
         myFixture.configureByFile("content/content/project/en/.content.xml")
         val action = createAnActionEvent()
+        pushAction.update(action)
+
+        assertFalse(action.presentation.isEnabledAndVisible)
+    }
+
+    fun testUpdateWithNullProject() {
+        myFixture.copyDirectoryToProject(
+            "common/en",
+            "content/content/project/en"
+        )
+        myFixture.configureByFile("content/content/project/en/.content.xml")
+        val action = createAnActionEvent(DataContext {
+            when (it) {
+                else -> null
+            }
+        })
+        pushAction.update(action)
+
+        assertFalse(action.presentation.isEnabledAndVisible)
+    }
+
+    fun testUpdateWithNullVirtualFile() {
+        myFixture.copyDirectoryToProject(
+            "common/en",
+            "content/content/project/en"
+        )
+        myFixture.configureByFile("content/content/project/en/.content.xml")
+        val action = createAnActionEvent(DataContext {
+            when (it) {
+                CommonDataKeys.PROJECT.name -> myFixture.project
+                else -> null
+            }
+        })
         pushAction.update(action)
 
         assertFalse(action.presentation.isEnabledAndVisible)
@@ -187,6 +317,9 @@ class PushActionTest : BasePlatformTestCase() {
 
     fun createAnActionEvent(): AnActionEvent =
         AnActionEvent.createFromDataContext(ActionPlaces.PROJECT_VIEW_POPUP, null, createDataContext())
+
+    fun createAnActionEvent(dataContext: DataContext): AnActionEvent =
+        AnActionEvent.createFromDataContext(ActionPlaces.PROJECT_VIEW_POPUP, null, dataContext)
 
     fun createAnActionEvent(virtualFile: VirtualFile): AnActionEvent =
         AnActionEvent.createFromDataContext(ActionPlaces.PROJECT_VIEW_POPUP, null, createDataContext(virtualFile))
