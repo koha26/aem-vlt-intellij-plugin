@@ -6,13 +6,11 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.PlatformDataKeys
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
-import com.intellij.openapi.ui.messages.MessagesService
 import com.intellij.openapi.vfs.VirtualFile
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.model.toDetailed
 import com.kdiachenko.aem.filevault.settings.AEMServerSettings
 import com.kdiachenko.aem.filevault.util.JcrPathUtil.toJcrPath
-import java.awt.Component
 import java.io.File
 import javax.swing.Icon
 

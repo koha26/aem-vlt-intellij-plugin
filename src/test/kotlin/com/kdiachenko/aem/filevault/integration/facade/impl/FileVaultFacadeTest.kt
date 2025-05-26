@@ -312,7 +312,7 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
         val actualVltFilter = metaInfServiceStub.createFilterXmlCalls[0].second
         assertEquals(expected.root, actualVltFilter.root)
         assertEquals(expected.mode, actualVltFilter.mode)
-        assertEquals(expected.excludePatterns, actualVltFilter.excludePatterns)
+        assertSameElements(expected.excludePatterns, actualVltFilter.excludePatterns)
         assertEquals(expected.includePatterns, actualVltFilter.includePatterns)
     }
 

@@ -5,8 +5,8 @@
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 [![License](https://img.shields.io/github/license/koha26/aem-vlt-intellij-plugin)](https://github.com/koha26/aem-vlt-intellij-plugin/blob/main/LICENSE)
 
-<!-- Plugin description -->
 ## 📋 Overview
+<!-- Plugin description -->
 The AEM VLT IntelliJ Plugin is an integration tool for developers working with Adobe Experience Manager (AEM). It provides a seamless way to push data (files, configurations) from your project (file system) to the AEM repository and pull data from the AEM repository to your project on the file system.
 
 This plugin relies on the Apache Jackrabbit File Vault library to handle content synchronization between your local environment and AEM instances.

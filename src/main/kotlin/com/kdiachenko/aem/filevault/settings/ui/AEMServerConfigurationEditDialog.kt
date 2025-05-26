@@ -10,17 +10,11 @@ import com.intellij.openapi.util.text.HtmlChunk
 import com.intellij.openapi.wm.IdeFocusManager
 import com.intellij.ui.ColorUtil
 import com.intellij.ui.components.JBTextField
-import com.intellij.ui.dsl.builder.Align
-import com.intellij.ui.dsl.builder.COLUMNS_SHORT
-import com.intellij.ui.dsl.builder.MutableProperty
-import com.intellij.ui.dsl.builder.RowLayout
-import com.intellij.ui.dsl.builder.bindText
-import com.intellij.ui.dsl.builder.columns
-import com.intellij.ui.dsl.builder.panel
+import com.intellij.ui.dsl.builder.*
 import com.intellij.ui.layout.ValidationInfoBuilder
 import com.intellij.util.ui.UIUtil
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
-import io.ktor.http.Url
+import io.ktor.http.*
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.http.auth.AuthScope
 import org.apache.http.auth.UsernamePasswordCredentials
@@ -31,12 +25,7 @@ import org.apache.http.impl.client.BasicCredentialsProvider
 import org.apache.http.impl.client.HttpClients
 import org.jetbrains.concurrency.AsyncPromise
 import java.awt.event.ActionEvent
-import javax.swing.Action
-import javax.swing.JCheckBox
-import javax.swing.JComponent
-import javax.swing.JLabel
-import javax.swing.JPasswordField
-import javax.swing.SwingUtilities
+import javax.swing.*
 
 class AEMServerConfigurationEditDialog(
     private val serverConfig: DetailedAEMServerConfig
@@ -107,12 +96,14 @@ class AEMServerConfigurationEditDialog(
         }
         row {
             defaultCheckbox = checkBox("Is default?")
-                .comment("""
+                .comment(
+                    """
                     Check if this is default AEM server configuration. 
                     Only one configuration can be default. 
                     Another default configuration will be unchecked. 
                     Click 'Save' button to save changes.
-                """.trimIndent(), maxLineLength = 35)
+                """.trimIndent(), maxLineLength = 35
+                )
                 .bind(
                     JCheckBox::isSelected,
                     { field, value -> field.isSelected = value },

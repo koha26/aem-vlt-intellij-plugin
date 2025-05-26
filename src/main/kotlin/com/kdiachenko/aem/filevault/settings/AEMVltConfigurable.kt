@@ -5,7 +5,7 @@ import com.intellij.openapi.options.ConfigurationException
 import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.panel
 import com.kdiachenko.aem.filevault.settings.ui.AEMServerSettingsPanel
-import javax.swing.*
+import javax.swing.JComponent
 
 /**
  * Settings UI for configuring AEM servers

@@ -4,7 +4,6 @@ import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import com.kdiachenko.aem.filevault.integration.dto.OperationEntryDetail
 import org.apache.jackrabbit.vault.fs.api.ProgressTrackerListener
 import org.apache.jackrabbit.vault.util.DefaultProgressListener
-import kotlin.collections.plusAssign
 
 class OperationProgressTrackerListener : ProgressTrackerListener {
     private val default = DefaultProgressListener()

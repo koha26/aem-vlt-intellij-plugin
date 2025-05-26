@@ -1,8 +1,6 @@
 package com.kdiachenko.aem.filevault.model
 
 import java.io.Serializable
-import java.net.MalformedURLException
-import java.net.URI
 import java.util.*
 
 /**

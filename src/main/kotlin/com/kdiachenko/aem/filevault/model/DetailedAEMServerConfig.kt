@@ -1,7 +1,7 @@
 package com.kdiachenko.aem.filevault.model
 
 import com.kdiachenko.aem.filevault.settings.service.CredentialsManager
-import java.util.UUID
+import java.util.*
 
 data class DetailedAEMServerConfig(
     override var id: String = UUID.randomUUID().toString(),
