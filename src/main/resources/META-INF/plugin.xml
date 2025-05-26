@@ -38,6 +38,9 @@
         <notificationGroup id="AEM VLT Notifications"
                            displayType="BALLOON"
                            isLogByDefault="true"/>
+
+        <dependencySupport coordinate="com.adobe.aem:uber-jar" kind="java" displayName="Adobe AEM Uber JAR"/>
+        <dependencySupport coordinate="com.adobe.aem:aem-sdk-api" kind="java" displayName="Adobe Experience Manager SDK API"/>
     </extensions>
 
     <actions>
