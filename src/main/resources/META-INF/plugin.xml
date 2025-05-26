@@ -1,15 +1,65 @@
-<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.github.koha26.aemvltintellijplugin</id>
-    <name>aem-vlt-intellij-plugin</name>
-    <vendor>koha26</vendor>
+    <id>com.kdiachenko.aem-vlt-tool</id>
+    <name>AEM VLT Tool</name>
+    <vendor email="konstantyn.diachenko@gmail.com"
+            url="https://github.com/koha26/aem-vlt-intellij-plugin">
+        Kostiantyn Diachenko
+    </vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
 
-    <resource-bundle>messages.MyBundle</resource-bundle>
+    <resource-bundle>messages.texts</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.koha26.aemvltintellijplugin.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.koha26.aemvltintellijplugin.startup.MyProjectActivity" />
+        <!-- Add application settings -->
+        <applicationConfigurable
+                instance="com.kdiachenko.aem.filevault.settings.AEMVltConfigurable"
+                id="com.kdiachenko.aem.filevault.settings.AEMVltConfigurable"
+                displayName="AEM VLT Settings"/>
+
+        <applicationService
+                serviceImplementation="com.kdiachenko.aem.filevault.settings.AEMServerSettings"/>
+
+        <projectService serviceImplementation="com.kdiachenko.aem.filevault.integration.facade.impl.FileVaultFacade"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade"/>
+        <projectService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.NotificationService"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.service.INotificationService"/>
+        <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.FileSystemService"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.service.IFileSystemService"/>
+        <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.MetaInfService"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.service.IMetaInfService"/>
+        <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.VaultOperationService"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.service.IVaultOperationService"/>
+        <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.factory.impl.VaultAppFactory"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.factory.IVaultAppFactory"/>
+
+        <!-- Notification group -->
+        <notificationGroup id="AEM VLT Notifications"
+                           displayType="BALLOON"
+                           isLogByDefault="true"/>
+
+        <dependencySupport coordinate="com.adobe.aem:uber-jar" kind="java" displayName="Adobe AEM Uber JAR"/>
+        <dependencySupport coordinate="com.adobe.aem:aem-sdk-api" kind="java" displayName="Adobe Experience Manager SDK API"/>
     </extensions>
+
+    <actions>
+        <!-- AEM VLT action group -->
+        <group id="AEMVLT.ActionGroup"
+               text="AEM VLT"
+               description="AEM VLT Operations"
+               popup="true">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="ProjectViewPopupMenuRefactoringGroup"/>
+            <separator/>
+            <action id="AEMVLT.PullAction"
+                    class="com.kdiachenko.aem.filevault.actions.PullAction"
+                    text="Pull from AEM (Default)"
+                    description="Pull content from AEM repository"/>
+            <action id="AEMVLT.PushAction"
+                    class="com.kdiachenko.aem.filevault.actions.PushAction"
+                    text="Push to AEM (Default)"
+                    description="Push content to AEM repository"/>
+            <separator/>
+        </group>
+    </actions>
 </idea-plugin>

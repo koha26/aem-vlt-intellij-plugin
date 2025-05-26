@@ -1,51 +1,91 @@
-# aem-vlt-intellij-plugin
+# AEM VLT IntelliJ Plugin
 
-![Build](https://github.com/koha26/aem-vlt-intellij-plugin/workflows/Build/badge.svg)
+[![Build](https://github.com/koha26/aem-vlt-intellij-plugin/workflows/Build/badge.svg)](https://github.com/koha26/aem-vlt-intellij-plugin/actions)
 [![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
+[![License](https://img.shields.io/github/license/koha26/aem-vlt-intellij-plugin)](https://github.com/koha26/aem-vlt-intellij-plugin/blob/main/LICENSE)
 
-## Template ToDo list
-- [x] Create a new [IntelliJ Platform Plugin Template][template] project.
-- [ ] Get familiar with the [template documentation][template].
-- [ ] Adjust the [pluginGroup](./gradle.properties) and [pluginName](./gradle.properties), as well as the [id](./src/main/resources/META-INF/plugin.xml) and [sources package](./src/main/kotlin).
-- [ ] Adjust the plugin description in `README` (see [Tips][docs:plugin-description])
-- [ ] Review the [Legal Agreements](https://plugins.jetbrains.com/docs/marketplace/legal-agreements.html?from=IJPluginTemplate).
-- [ ] [Publish a plugin manually](https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginTemplate) for the first time.
-- [ ] Set the `MARKETPLACE_ID` in the above README badges. You can obtain it once the plugin is published to JetBrains Marketplace.
-- [ ] Set the [Plugin Signing](https://plugins.jetbrains.com/docs/intellij/plugin-signing.html?from=IJPluginTemplate) related [secrets](https://github.com/JetBrains/intellij-platform-plugin-template#environment-variables).
-- [ ] Set the [Deployment Token](https://plugins.jetbrains.com/docs/marketplace/plugin-upload.html?from=IJPluginTemplate).
-- [ ] Click the <kbd>Watch</kbd> button on the top of the [IntelliJ Platform Plugin Template][template] to be notified about releases containing new features and fixes.
-
+## 📋 Overview
 <!-- Plugin description -->
-This Fancy IntelliJ Platform Plugin is going to be your implementation of the brilliant ideas that you have.
+The AEM VLT IntelliJ Plugin is an integration tool for developers working with Adobe Experience Manager (AEM). It provides a seamless way to push data (files, configurations) from your project (file system) to the AEM repository and pull data from the AEM repository to your project on the file system.
 
-This specific section is a source for the [plugin.xml](/src/main/resources/META-INF/plugin.xml) file which will be extracted by the [Gradle](/build.gradle.kts) during the build process.
+This plugin relies on the Apache Jackrabbit File Vault library to handle content synchronization between your local environment and AEM instances.
 
-To keep everything working, do not remove `<!-- ... -->` sections. 
+## ✨ Features
+
+- **Push to AEM**: Easily push content from your local file system to AEM repository
+- **Pull from AEM**: Quickly pull content from AEM repository to your local file system
+- **Multiple Server Support**: Configure and manage multiple AEM server connections
+- **Progress Tracking**: Visual progress indicators for push and pull operations
+- **Detailed Results**: Get detailed operation results with statistics on added, updated, and deleted files
+- **Context Menu Integration**: Access AEM operations directly from the project view context menu
+
+## 🔧 Installation
+
+### Using the IDE built-in plugin system:
+
+1. Open your IntelliJ IDEA
+2. Navigate to `Settings/Preferences` → `Plugins` → `Marketplace`
+3. Search for `"AEM VLT Tool"`
+4. Click `Install`
+
+### Using JetBrains Marketplace:
+
+1. Go to [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
+2. Click the `Install to ...` button
+
+### Manual Installation:
+
+1. Download the [latest release](https://github.com/koha26/aem-vlt-intellij-plugin/releases/latest)
+2. In IntelliJ IDEA, go to `Settings/Preferences` → `Plugins` → `⚙️` → `Install plugin from disk...`
+3. Select the downloaded plugin file
+
+## 🚀 Usage
+
+### Configuration
+
+1. Go to `Settings/Preferences` > `AEM VLT Settings`
+2. Add your AEM server configurations:
+   - Server Name (e.g AEM Author)
+   - URL
+   - Username and Password
+   - Set as default (optional)
+
+### Push Content to AEM
+
+1. Right-click on a file or directory in the Project view
+2. Select `AEM VLT` → `Push to AEM (Default)`
+3. If multiple servers are configured, select the target server
+4. The plugin will push the content to the corresponding path in AEM
+
+### Pull Content from AEM
+
+1. Right-click on a file or directory in the Project view
+2. Select `AEM VLT` → `Pull from AEM (Default)`
+3. If multiple servers are configured, select the source server
+4. The plugin will pull the content from the corresponding path in AEM
 <!-- Plugin description end -->
 
-## Installation
+## 🤝 Contributing
 
-- Using the IDE built-in plugin system:
-  
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "aem-vlt-intellij-plugin"</kbd> >
-  <kbd>Install</kbd>
-  
-- Using JetBrains Marketplace:
+Contributions are welcome! If you'd like to contribute:
 
-  Go to [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID) and install it by clicking the <kbd>Install to ...</kbd> button in case your IDE is running.
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-  You can also download the [latest release](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID/versions) from JetBrains Marketplace and install it manually using
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
+## 📄 License
 
-- Manually:
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-  Download the [latest release](https://github.com/koha26/aem-vlt-intellij-plugin/releases/latest) and install it manually using
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
+## 🙏 Acknowledgements
 
+- [Apache Jackrabbit FileVault](https://jackrabbit.apache.org/filevault/)
+- [IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template)
+- [Adobe Experience Manager](https://business.adobe.com/products/experience-manager/adobe-experience-manager.html)
 
 ---
-Plugin based on the [IntelliJ Platform Plugin Template][template].
 
-[template]: https://github.com/JetBrains/intellij-platform-plugin-template
-[docs:plugin-description]: https://plugins.jetbrains.com/docs/intellij/plugin-user-experience.html#plugin-description-and-presentation
+Developed by [Kostiantyn Diachenko](https://github.com/koha26) [(Adobe Community Advisor)](https://experienceleaguecommunities.adobe.com/t5/user/viewprofilepage/user-id/17916475)

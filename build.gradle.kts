@@ -1,5 +1,6 @@
 import org.jetbrains.changelog.Changelog
 import org.jetbrains.changelog.markdownToHTML
+import org.jetbrains.intellij.platform.gradle.Constants
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -29,10 +30,25 @@ repositories {
     }
 }
 
+val fileVaultVersion = providers.gradleProperty("fileVaultVersion").get()
+
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
+    implementation("org.apache.jackrabbit.vault:org.apache.jackrabbit.vault:${fileVaultVersion}")
+    implementation("org.apache.jackrabbit.vault:vault-cli:${fileVaultVersion}")
+    implementation("org.apache.jackrabbit.vault:vault-davex:3.7.0")
+
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
+    testImplementation(libs.junitJupiter)
+    testImplementation(libs.junitJupiterParams)
+
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine") {
+        because("allows JUnit 3 and JUnit 4 tests to run")
+    }
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher") {
+        because("allows tests to run from IDEs that bundle older version of launcher")
+    }
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
@@ -44,7 +60,8 @@ dependencies {
         // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file for plugin from JetBrains Marketplace.
         plugins(providers.gradleProperty("platformPlugins").map { it.split(',') })
 
-        testFramework(TestFrameworkType.Platform)
+        testFramework(TestFrameworkType.Platform, configurationName = Constants.Configurations.INTELLIJ_PLATFORM_DEPENDENCIES)
+        testFramework(TestFrameworkType.JUnit5, configurationName = Constants.Configurations.INTELLIJ_PLATFORM_DEPENDENCIES)
     }
 }
 
@@ -120,6 +137,9 @@ kover {
             xml {
                 onCheck = true
             }
+            html {
+                onCheck = true
+            }
         }
     }
 }
@@ -131,6 +151,10 @@ tasks {
 
     publishPlugin {
         dependsOn(patchChangelog)
+    }
+
+    test {
+        useJUnitPlatform()
     }
 }
 
