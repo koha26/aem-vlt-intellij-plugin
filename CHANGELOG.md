@@ -2,7 +2,7 @@
 
 # AEM VLT IntelliJ Plugin Changelog
 
-## [1.0.0]
+## [Unreleased]
 [1.0.0]: https://github.com/koha26/aem-vlt-intellij-plugin/tree/v1.0.0
 ### Added
 - Initial release of the AEM VLT IntelliJ Plugin
