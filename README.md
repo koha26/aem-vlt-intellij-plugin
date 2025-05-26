@@ -25,43 +25,43 @@ This plugin relies on the Apache Jackrabbit File Vault library to handle content
 ### Using the IDE built-in plugin system:
 
 1. Open your IntelliJ IDEA
-2. Navigate to <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd>
-3. Search for <kbd>"AEM VLT Tool"</kbd>
-4. Click <kbd>Install</kbd>
+2. Navigate to `Settings/Preferences` → `Plugins` → `Marketplace`
+3. Search for `"AEM VLT Tool"`
+4. Click `Install`
 
 ### Using JetBrains Marketplace:
 
 1. Go to [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
-2. Click the <kbd>Install to ...</kbd> button
+2. Click the `Install to ...` button
 
 ### Manual Installation:
 
 1. Download the [latest release](https://github.com/koha26/aem-vlt-intellij-plugin/releases/latest)
-2. In IntelliJ IDEA, go to <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
+2. In IntelliJ IDEA, go to `Settings/Preferences` → `Plugins` → `⚙️` → `Install plugin from disk...`
 3. Select the downloaded plugin file
 
 ## 🚀 Usage
 
 ### Configuration
 
-1. Go to <kbd>Settings/Preferences</kbd> > <kbd>AEM FileVault Settings</kbd>
+1. Go to `Settings/Preferences` > `AEM VLT Settings`
 2. Add your AEM server configurations:
    - Server Name (e.g AEM Author)
-   - URL (e.g., http://localhost:4502)
+   - URL
    - Username and Password
    - Set as default (optional)
 
 ### Push Content to AEM
 
 1. Right-click on a file or directory in the Project view
-2. Select <kbd>AEM FileVault</kbd> > <kbd>Push to AEM</kbd>
+2. Select `AEM VLT` → `Push to AEM (Default)`
 3. If multiple servers are configured, select the target server
 4. The plugin will push the content to the corresponding path in AEM
 
 ### Pull Content from AEM
 
 1. Right-click on a file or directory in the Project view
-2. Select <kbd>AEM FileVault</kbd> > <kbd>Pull from AEM</kbd>
+2. Select `AEM VLT` → `Pull from AEM (Default)`
 3. If multiple servers are configured, select the source server
 4. The plugin will pull the content from the corresponding path in AEM
 <!-- Plugin description end -->

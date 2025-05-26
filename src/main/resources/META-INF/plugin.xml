@@ -44,7 +44,7 @@
     </extensions>
 
     <actions>
-        <!-- AEM FileVault action group -->
+        <!-- AEM VLT action group -->
         <group id="AEMVLT.ActionGroup"
                text="AEM VLT"
                description="AEM VLT Operations"

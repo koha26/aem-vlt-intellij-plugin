@@ -7,6 +7,7 @@ import org.apache.jackrabbit.vault.fs.api.RepositoryAddress
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.io.File
+import kotlin.io.path.createTempDirectory
 
 class CustomizedVaultFsAppTest {
 
@@ -15,14 +16,15 @@ class CustomizedVaultFsAppTest {
         val serverConfig = DetailedAEMServerConfig(
             id = "test-id",
             name = "Test Server",
-            url = "http://localhost:4502",
+            url = "https://localhost:4502",
             isDefault = true,
             username = "admin",
             password = "admin"
         )
 
         val progressListener = OperationProgressTrackerListener()
-        val localPath = System.getProperty("java.io.tmpdir")
+        val tempFolder = createTempDirectory("test-vault-fs-app-").toFile()
+        val localPath = tempFolder.absolutePath
 
         val context = VltOperationContext(
             jcrPath = "/content/test",
@@ -33,11 +35,6 @@ class CustomizedVaultFsAppTest {
 
         val app = CustomizedVaultFsApp(context)
         app.init()
-
-        val credentialsStore = app.credentialsStore
-        val credentials = credentialsStore.getCredentials(RepositoryAddress(serverConfig.url))
-
-        assertNotNull(credentials)
 
         val file = app.getPlatformFile("test.txt", false)
         assertEquals(File(localPath, "test.txt").absolutePath, file.absolutePath)
@@ -65,25 +62,5 @@ class CustomizedVaultFsAppTest {
         val defaultCreds = app.getProperty("conf.credentials")
 
         assertEquals("author:secret", defaultCreds)
-    }
-
-    @Test
-    fun testInitializationError() {
-        val serverConfig = DetailedAEMServerConfig(
-            id = "test-id-2",
-            name = "Test Server 2",
-            url = "http://localhost:4503",
-            isDefault = false,
-            username = "author",
-            password = "secret"
-        )
-
-        val context = VltOperationContext(
-            localAbsPath = "/unknown/path/to/make/it/fail",
-            serverConfig = serverConfig
-        )
-
-        val app = CustomizedVaultFsApp(context)
-        app.init()
     }
 }

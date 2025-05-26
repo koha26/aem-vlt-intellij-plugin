@@ -117,7 +117,7 @@ class PushActionTest : BasePlatformTestCase() {
         val exception = org.junit.jupiter.api.assertThrows<RuntimeException>({ pushAction.actionPerformed(action) })
 
         assertEquals(0, fileVaultFacadeStub.exportedFiles.size)
-        assertEquals("No AEM servers configured. Please add servers in Settings | AEM FileVault Settings.", exception.message)
+        assertEquals("No AEM servers configured. Please add servers in Settings | AEM VLT Settings.", exception.message)
     }
 
     fun testActionPerformedOnFileWithMultipleServers() {
@@ -146,7 +146,7 @@ class PushActionTest : BasePlatformTestCase() {
         val exception = org.junit.jupiter.api.assertThrows<RuntimeException> { pushAction.actionPerformed(action) }
 
         assertEquals(0, fileVaultFacadeStub.exportedFiles.size)
-        assertEquals("No default AEM servers configured. Please mark desired server as default in Settings | AEM FileVault Settings.", exception.message)
+        assertEquals("No default AEM servers configured. Please mark desired server as default in Settings | AEM VLT Settings.", exception.message)
     }
 
     fun testActionPerformedWithNullProject() {

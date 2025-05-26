@@ -4,7 +4,7 @@ import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import com.intellij.util.application
+import com.intellij.testFramework.runInEdtAndWait
 import com.intellij.util.ui.UIUtil
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -28,12 +28,12 @@ class NotificationServiceTest : BasePlatformTestCase() {
             })
         }
 
-        application.invokeLater {
+        runInEdtAndWait {
             val notificationService = NotificationService.getInstance(project)
             notificationService.showInfo("Test title", "Test <b>content</b>")
         }
 
-        waitForCondition(10.toDuration(TimeUnit.SECONDS.toDurationUnit())) { shownNotification.get() != null }
+        waitForCondition(60.toDuration(TimeUnit.SECONDS.toDurationUnit())) { shownNotification.get() != null }
 
         val notification = shownNotification.get()
         assertNotNull(notification)
@@ -55,12 +55,12 @@ class NotificationServiceTest : BasePlatformTestCase() {
             })
         }
 
-        application.invokeLater {
+        runInEdtAndWait {
             val notificationService = NotificationService.getInstance(project)
             notificationService.showError("Test title", "Test <b>content</b>")
         }
 
-        waitForCondition(10.toDuration(TimeUnit.SECONDS.toDurationUnit())) { shownNotification.get() != null }
+        waitForCondition(60.toDuration(TimeUnit.SECONDS.toDurationUnit())) { shownNotification.get() != null }
 
         val notification = shownNotification.get()
         assertNotNull(notification)

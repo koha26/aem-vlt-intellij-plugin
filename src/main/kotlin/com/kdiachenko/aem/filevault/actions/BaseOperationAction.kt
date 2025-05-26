@@ -45,7 +45,7 @@ abstract class BaseOperationAction : AnAction() {
         if (servers.isEmpty()) {
             Messages.showErrorDialog(
                 project,
-                "No AEM servers configured. Please add servers in Settings | AEM FileVault Settings.",
+                "No AEM servers configured. Please add servers in Settings | AEM VLT Settings.",
                 "No Servers Configured"
             )
             return null
@@ -62,7 +62,7 @@ abstract class BaseOperationAction : AnAction() {
 
         Messages.showErrorDialog(
             project,
-            "No default AEM servers configured. Please mark desired server as default in Settings | AEM FileVault Settings.",
+            "No default AEM servers configured. Please mark desired server as default in Settings | AEM VLT Settings.",
             "No Default Servers Configured"
         )
         return null

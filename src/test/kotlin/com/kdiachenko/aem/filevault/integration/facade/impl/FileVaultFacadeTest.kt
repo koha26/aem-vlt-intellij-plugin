@@ -304,14 +304,16 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
         assertTrue("Export should succeed but failed with: ${result.message}", result.success)
         assertEquals(1, metaInfServiceStub.createFilterXmlCalls.size)
         assertEquals(tempDir.pathString, metaInfServiceStub.createFilterXmlCalls[0].first.pathString)
-        assertEquals(
-            VltFilter(
-                "/content/project/en",
-                "",
-                listOf("/content/project/en/clientlibs(/.*)?", "/content/project/en/nested(/.*)?")
-            ),
-            metaInfServiceStub.createFilterXmlCalls[0].second
+        val expected = VltFilter(
+            "/content/project/en",
+            "",
+            listOf("/content/project/en/clientlibs(/.*)?", "/content/project/en/nested(/.*)?")
         )
+        val actualVltFilter = metaInfServiceStub.createFilterXmlCalls[0].second
+        assertEquals(expected.root, actualVltFilter.root)
+        assertEquals(expected.mode, actualVltFilter.mode)
+        assertEquals(expected.excludePatterns, actualVltFilter.excludePatterns)
+        assertEquals(expected.includePatterns, actualVltFilter.includePatterns)
     }
 
     fun `test importContent should copy selected file before import`() {
