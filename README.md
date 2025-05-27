@@ -1,8 +1,8 @@
 # AEM VLT IntelliJ Plugin
 
 [![Build](https://github.com/koha26/aem-vlt-intellij-plugin/workflows/Build/badge.svg)](https://github.com/koha26/aem-vlt-intellij-plugin/actions)
-[![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
-[![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
+[![Version](https://img.shields.io/jetbrains/plugin/v/27469-aem-vlt-tool.svg)](https://plugins.jetbrains.com/plugin/27469-aem-vlt-tool)
+[![Downloads](https://img.shields.io/jetbrains/plugin/d/27469-aem-vlt-tool.svg)](https://plugins.jetbrains.com/plugin/27469-aem-vlt-tool)
 [![License](https://img.shields.io/github/license/koha26/aem-vlt-intellij-plugin)](https://github.com/koha26/aem-vlt-intellij-plugin/blob/main/LICENSE)
 
 ## 📋 Overview
@@ -31,7 +31,7 @@ This plugin relies on the Apache Jackrabbit File Vault library to handle content
 
 ### Using JetBrains Marketplace:
 
-1. Go to [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
+1. Go to [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/27469-aem-vlt-tool)
 2. Click the `Install to ...` button
 
 ### Manual Installation:
