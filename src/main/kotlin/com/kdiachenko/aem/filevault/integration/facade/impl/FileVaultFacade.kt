@@ -97,7 +97,7 @@ open class FileVaultFacade : IFileVaultFacade {
 
             return@supplyAsync result
         } catch (e: Exception) {
-            //logger.error("Error during content export", e)
+            logger.info("Error during content export", e)
             return@supplyAsync failed("Error: ${e.message}")
         } finally {
             cleanup(tmpDir)
@@ -191,7 +191,7 @@ open class FileVaultFacade : IFileVaultFacade {
 
             return@supplyAsync result
         } catch (e: Exception) {
-            //logger.error("Error during content import", e)
+            logger.info("Error during content import", e)
             return@supplyAsync failed("Error: ${e.message}")
         } finally {
             cleanup(tmpDir)
