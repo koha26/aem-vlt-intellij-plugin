@@ -6,7 +6,9 @@ import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import org.apache.jackrabbit.vault.fs.api.RepositoryAddress
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertInstanceOf
 import java.io.File
+import javax.jcr.SimpleCredentials
 import kotlin.io.path.createTempDirectory
 
 class CustomizedVaultFsAppTest {
@@ -41,7 +43,7 @@ class CustomizedVaultFsAppTest {
     }
 
     @Test
-    fun testCredentialsSetup() {
+    fun testDefaultCredentials() {
         val serverConfig = DetailedAEMServerConfig(
             id = "test-id-2",
             name = "Test Server 2",
@@ -62,5 +64,57 @@ class CustomizedVaultFsAppTest {
         val defaultCreds = app.getProperty("conf.credentials")
 
         assertEquals("author:secret", defaultCreds)
+    }
+
+    @Test
+    fun testAdminCredentialsSetupToStore() {
+        val serverConfig = DetailedAEMServerConfig(
+            id = "test-id-2",
+            name = "Test Server 2",
+            url = "http://localhost:4503/crx/server",
+            isDefault = false,
+            username = "admin",
+            password = "admin"
+        )
+
+        val context = VltOperationContext(
+            localAbsPath = System.getProperty("java.io.tmpdir"),
+            serverConfig = serverConfig
+        )
+
+        val app = CustomizedVaultFsApp(context)
+        app.init()
+
+        val credentials = app.credentialsStore.getCredentials(RepositoryAddress("http://localhost:4503"))
+        assertNotNull(credentials)
+        assertInstanceOf<SimpleCredentials>(credentials)
+        assertEquals("admin", credentials.userID)
+        assertEquals("admin", String(credentials.password))
+    }
+
+    @Test
+    fun testNotAdminCredentialsSetupToStore() {
+        val serverConfig = DetailedAEMServerConfig(
+            id = "test-id-2",
+            name = "Test Server 2",
+            url = "http://localhost:4503/crx/server",
+            isDefault = false,
+            username = "author",
+            password = "secret"
+        )
+
+        val context = VltOperationContext(
+            localAbsPath = System.getProperty("java.io.tmpdir"),
+            serverConfig = serverConfig
+        )
+
+        val app = CustomizedVaultFsApp(context)
+        app.init()
+
+        val credentials = app.credentialsStore.getCredentials(RepositoryAddress("http://localhost:4503"))
+        assertNotNull(credentials)
+        assertInstanceOf<SimpleCredentials>(credentials)
+        assertEquals("author", credentials.userID)
+        assertEquals("secret", String(credentials.password))
     }
 }
