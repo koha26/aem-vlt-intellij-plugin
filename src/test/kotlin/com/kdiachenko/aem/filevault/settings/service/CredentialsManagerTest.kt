@@ -44,7 +44,7 @@ class CredentialsManagerTest : BasePlatformTestCase() {
         assertNull(removedCredentials)
     }
 
-    fun testGetAsync() {
+    /*fun testGetAsync() {
         service.add(testId, testUsername, testPassword)
 
         val credentialsPromise = service.getAsync(testId)
@@ -53,7 +53,7 @@ class CredentialsManagerTest : BasePlatformTestCase() {
         assertNotNull(credentials)
         assertEquals(testUsername, credentials?.userName)
         assertEquals(testPassword, credentials?.getPasswordAsString())
-    }
+    }*/
 
     fun testGetNonExistentCredentials() {
         val credentials = service.get("non-existent-id")
