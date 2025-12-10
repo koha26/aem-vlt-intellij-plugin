@@ -36,7 +36,7 @@ val fileVaultVersion = providers.gradleProperty("fileVaultVersion").get()
 dependencies {
     implementation("org.apache.jackrabbit.vault:org.apache.jackrabbit.vault:${fileVaultVersion}")
     implementation("org.apache.jackrabbit.vault:vault-cli:${fileVaultVersion}")
-    implementation("org.apache.jackrabbit.vault:vault-davex:3.8.4")
+    implementation("org.apache.jackrabbit.vault:vault-davex:4.1.4")
 
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
