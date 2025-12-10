@@ -42,8 +42,5 @@ class CredentialsManager {
     private fun generateKey(id: String) =
         CredentialAttributes(
             serviceName = generateServiceName("aem-vlt-intellij-plugin-servers", id),
-            userName = null,
-            isPasswordMemoryOnly = false,
-            cacheDeniedItems = true
         )
 }
