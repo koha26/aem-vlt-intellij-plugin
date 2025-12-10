@@ -3,6 +3,13 @@
 # AEM VLT IntelliJ Plugin Changelog
 
 ## [Unreleased]
+[1.0.2]: https://github.com/koha26/aem-vlt-intellij-plugin/tree/v1.0.2
+### Fixed
+- #51: Fix a plugin compatibility with 2025.3 (253+) versions
+### Maintenance
+- Bump dependencies versions
+
+## [1.0.1]
 [1.0.1]: https://github.com/koha26/aem-vlt-intellij-plugin/tree/v1.0.1
 ### Fixed
 - #12: Push/pull failed: OakAccess0000: Access denied or "Unable mount filesystem"
