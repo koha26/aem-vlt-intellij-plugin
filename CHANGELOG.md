@@ -2,7 +2,7 @@
 
 # AEM VLT IntelliJ Plugin Changelog
 
-## [1.0.3]
+## [Unreleased]
 [1.0.3]: https://github.com/koha26/aem-vlt-intellij-plugin/tree/v1.0.3
 ### Fixed
 - Fix a plugin compatibility with 2026.1 (261+) versions
