@@ -39,7 +39,7 @@ class CustomizedVaultFsAppTest {
         app.init()
 
         val file = app.getPlatformFile("test.txt", false)
-        assertEquals(File(localPath, "test.txt").absolutePath, file.absolutePath)
+        assertEquals(File(localPath, "test.txt").canonicalPath, file.canonicalPath)
     }
 
     @Test
