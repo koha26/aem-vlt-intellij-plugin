@@ -6,6 +6,7 @@
 [1.0.3]: https://github.com/koha26/aem-vlt-intellij-plugin/tree/v1.0.3
 ### Fixed
 - Fix a plugin compatibility with 2026.1 (261+) versions
+- Add compatibility with IntelliJ IDEA 2026.2 and all remaining 2026 releases
 
 ## [1.0.2]
 [1.0.2]: https://github.com/koha26/aem-vlt-intellij-plugin/tree/v1.0.2
