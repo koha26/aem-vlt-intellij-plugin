@@ -17,7 +17,7 @@ version = providers.gradleProperty("pluginVersion").get()
 
 // Set the JVM language level used to build the project.
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
 }
 
 // Configure project's dependencies
@@ -85,16 +85,15 @@ intellijPlatform {
         }
 
         val changelog = project.changelog // local variable for configuration cache compatibility
+        val pluginVersion = providers.gradleProperty("pluginVersion").get()
         // Get the latest available change notes from the changelog file
-        changeNotes = providers.gradleProperty("pluginVersion").map { pluginVersion ->
-            with(changelog) {
-                renderItem(
-                    (getOrNull(pluginVersion) ?: getUnreleased())
-                        .withHeader(false)
-                        .withEmptySections(false),
-                    Changelog.OutputType.HTML,
-                )
-            }
+        changeNotes = provider {
+            changelog.renderItem(
+                (changelog.getOrNull(pluginVersion) ?: changelog.getUnreleased())
+                    .withHeader(false)
+                    .withEmptySections(false),
+                Changelog.OutputType.HTML,
+            )
         }
 
         ideaVersion {
