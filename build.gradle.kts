@@ -85,10 +85,9 @@ intellijPlatform {
         }
 
         val changelog = project.changelog // local variable for configuration cache compatibility
+        var pluginVersion = providers.gradleProperty("pluginVersion").get()
         // Get the latest available change notes from the changelog file
         changeNotes = provider {
-            val pluginVersion = project.version.toString()
-
             changelog.renderItem(
                 (changelog.getOrNull(pluginVersion) ?: changelog.getUnreleased())
                     .withHeader(false)
