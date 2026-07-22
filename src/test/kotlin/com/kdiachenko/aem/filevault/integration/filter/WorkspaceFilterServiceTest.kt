@@ -1,13 +1,19 @@
 package com.kdiachenko.aem.filevault.integration.filter
 
 import com.kdiachenko.aem.filevault.integration.service.impl.WorkspaceFilterService
+import org.apache.jackrabbit.vault.fs.api.ImportMode
+import org.apache.jackrabbit.vault.fs.config.DefaultWorkspaceFilter
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import java.io.ByteArrayInputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.stream.Stream
@@ -81,6 +87,98 @@ class WorkspaceFilterServiceTest {
         )
     }
 
+    @Test
+    fun `execution scope narrows ancestor roots and retains descendant roots in order`() {
+        val selected = packageSelection("""
+            <workspaceFilter version="1.0">
+                <filter root="/apps" mode="merge_properties">
+                    <exclude pattern="/apps/site/private(/.*)?"/>
+                </filter>
+                <filter root="/apps/site/components" type="cleanup"/>
+            </workspaceFilter>
+        """.trimIndent())
+        val evaluation = WorkspaceFilterService().evaluate(selected)
+
+        val scope = WorkspaceFilterService().executionScope(
+            selected,
+            WorkspaceFilterOperationOptions(
+                partialScopeApproved = true,
+                expectedFilterFingerprint = evaluation.filterFingerprint,
+            ),
+        )
+        val reloaded = reload(scope.workspaceFilter)
+
+        assertEquals(listOf("/apps/site/components", "/apps/site/components"), reloaded.filterSets.map { it.root })
+        assertEquals(ImportMode.MERGE_PROPERTIES, reloaded.filterSets[0].importMode)
+        assertEquals("cleanup", reloaded.filterSets[1].type)
+        assertFalse(reloaded.contains("/apps/site/private"))
+    }
+
+    @Test
+    fun `content xml scope includes node and excludes every descendant`() {
+        val directory = packageSelection("<workspaceFilter><filter root=\"/apps/site\"/></workspaceFilter>")
+        val contentXml = directory.resolve(".content.xml")
+        Files.writeString(contentXml, "<jcr:root/>")
+        val evaluation = WorkspaceFilterService().evaluate(contentXml)
+
+        val scope = WorkspaceFilterService().executionScope(
+            contentXml,
+            WorkspaceFilterOperationOptions(expectedFilterFingerprint = evaluation.filterFingerprint),
+        )
+        val reloaded = reload(scope.workspaceFilter)
+
+        assertTrue(reloaded.contains("/apps/site/components"))
+        assertFalse(reloaded.contains("/apps/site/components/button"))
+    }
+
+    @Test
+    fun `execution rejects unapproved partial and changed fingerprint`() {
+        val selected = packageSelection("<workspaceFilter><filter root=\"/apps/site\"><exclude pattern=\"/apps/site/private(/.*)?\"/></filter></workspaceFilter>")
+
+        assertThrows<WorkspaceFilterBlockedException> {
+            WorkspaceFilterService().executionScope(selected, WorkspaceFilterOperationOptions())
+        }
+
+        val evaluation = WorkspaceFilterService().evaluate(selected)
+        Files.writeString(evaluation.filterFile!!, "<workspaceFilter><filter root=\"/content\"/></workspaceFilter>")
+        val changed = assertThrows<WorkspaceFilterBlockedException> {
+            WorkspaceFilterService().executionScope(
+                selected,
+                WorkspaceFilterOperationOptions(
+                    partialScopeApproved = true,
+                    expectedFilterFingerprint = evaluation.filterFingerprint,
+                ),
+            )
+        }
+
+        assertEquals(WorkspaceFilterStatus.FILTER_CHANGED, changed.validation.status)
+    }
+
+    @Test
+    fun `effective filter preserves property-only rules`() {
+        val selected = packageSelection("""
+            <workspaceFilter version="1.0">
+                <filter root="/apps/site">
+                    <exclude pattern="/apps/site/components/secret" matchProperties="true"/>
+                </filter>
+            </workspaceFilter>
+        """.trimIndent())
+        val evaluation = WorkspaceFilterService().evaluate(selected)
+
+        val scope = WorkspaceFilterService().executionScope(
+            selected,
+            WorkspaceFilterOperationOptions(
+                partialScopeApproved = true,
+                expectedFilterFingerprint = evaluation.filterFingerprint,
+            ),
+        )
+        val reloaded = reload(scope.workspaceFilter)
+
+        assertTrue(reloaded.contains("/apps/site/components"))
+        assertFalse(reloaded.includesProperty("/apps/site/components/secret"))
+        assertTrue(reloaded.includesProperty("/apps/site/components/title"))
+    }
+
     private fun packageSelection(filterXml: String?): Path {
         val packageRoot = tempDir.resolve("ui.apps")
         val selected = packageRoot.resolve("jcr_root/apps/site/components")
@@ -92,6 +190,11 @@ class WorkspaceFilterServiceTest {
         }
         return selected
     }
+
+    private fun reload(filter: DefaultWorkspaceFilter): DefaultWorkspaceFilter =
+        DefaultWorkspaceFilter().apply {
+            load(ByteArrayInputStream(filter.sourceAsString.toByteArray()))
+        }
 
     companion object {
         @JvmStatic

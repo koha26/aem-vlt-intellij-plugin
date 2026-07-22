@@ -17,6 +17,7 @@ import java.io.ByteArrayInputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
+import java.util.regex.Pattern
 
 class WorkspaceFilterService : IWorkspaceFilterService {
 
@@ -127,12 +128,32 @@ class WorkspaceFilterService : IWorkspaceFilterService {
         options: WorkspaceFilterOperationOptions,
     ): WorkspaceFilterExecutionScope {
         val validation = evaluate(selection)
-        if (validation.status != WorkspaceFilterStatus.FULLY_INCLUDED &&
-            validation.status != WorkspaceFilterStatus.PARTIALLY_INCLUDED
+        if (options.expectedFilterFingerprint != null &&
+            options.expectedFilterFingerprint != validation.filterFingerprint
         ) {
+            throw WorkspaceFilterBlockedException(
+                validation.copy(
+                    status = WorkspaceFilterStatus.FILTER_CHANGED,
+                    message = "filter.xml changed after validation. Run the operation again.",
+                    addToFilterApplicable = false,
+                ),
+            )
+        }
+        val executable = validation.status == WorkspaceFilterStatus.FULLY_INCLUDED ||
+            (validation.status == WorkspaceFilterStatus.PARTIALLY_INCLUDED && options.partialScopeApproved)
+        if (!executable) {
             throw WorkspaceFilterBlockedException(validation)
         }
-        throw UnsupportedOperationException("Task 3 implements execution scope.")
+        val original = DefaultWorkspaceFilter().apply {
+            load(validation.filterFile!!.toFile())
+        }
+        val effective = buildEffectiveFilter(
+            original = original,
+            selectedJcrPath = validation.selectedJcrPath!!,
+            directory = Files.isDirectory(validation.selectedLocalPath),
+            contentXml = validation.selectedLocalPath.fileName.toString() == ".content.xml",
+        )
+        return WorkspaceFilterExecutionScope(validation, effective)
     }
 
     private fun blocked(
@@ -185,6 +206,53 @@ class WorkspaceFilterService : IWorkspaceFilterService {
     private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
         .digest(bytes)
         .joinToString("") { "%02x".format(it) }
+
+    private fun buildEffectiveFilter(
+        original: DefaultWorkspaceFilter,
+        selectedJcrPath: String,
+        directory: Boolean,
+        contentXml: Boolean,
+    ): DefaultWorkspaceFilter {
+        check(original.filterSets.size == original.propertyFilterSets.size) {
+            "Workspace filter node/property filter-set count mismatch."
+        }
+        val result = DefaultWorkspaceFilter()
+        original.filterSets.forEachIndexed { index, nodes ->
+            val rootIsAboveSelection = nodes.covers(selectedJcrPath)
+            val rootIsBelowSelection = directory && nodes.root.startsWith("$selectedJcrPath/")
+            if (!rootIsAboveSelection && !rootIsBelowSelection) {
+                return@forEachIndexed
+            }
+            if (contentXml && !rootIsAboveSelection) {
+                return@forEachIndexed
+            }
+
+            val effectiveRoot = if (rootIsAboveSelection) {
+                selectedJcrPath
+            } else {
+                nodes.root
+            }
+            val nodeClone = cloneSet(nodes, effectiveRoot)
+            val propertyClone = cloneSet(original.propertyFilterSets[index], effectiveRoot)
+            if (contentXml) {
+                nodeClone.addExclude(DefaultPathFilter(Pattern.quote(selectedJcrPath) + "/.*"))
+            }
+            result.add(nodeClone, propertyClone)
+        }
+        return result
+    }
+
+    private fun cloneSet(source: PathFilterSet, root: String): PathFilterSet = PathFilterSet(root).also { target ->
+        target.importMode = source.importMode
+        target.type = source.type
+        source.entries.forEach { entry ->
+            if (entry.isInclude) {
+                target.addInclude(entry.filter)
+            } else {
+                target.addExclude(entry.filter)
+            }
+        }
+    }
 
     private fun includeTargetsSelectedSubtree(filter: Any, selected: String): Boolean {
         val pattern = (filter as? DefaultPathFilter)?.pattern ?: return false
