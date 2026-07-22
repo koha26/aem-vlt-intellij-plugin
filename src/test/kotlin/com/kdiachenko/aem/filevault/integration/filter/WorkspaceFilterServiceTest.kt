@@ -1,0 +1,132 @@
+package com.kdiachenko.aem.filevault.integration.filter
+
+import com.kdiachenko.aem.filevault.integration.service.impl.WorkspaceFilterService
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.stream.Stream
+
+class WorkspaceFilterServiceTest {
+    @TempDir
+    lateinit var tempDir: Path
+
+    @Test
+    fun `fully includes descendant of unconditional root`() {
+        val selected = packageSelection("""
+            <workspaceFilter version="1.0">
+                <filter root="/apps/site"/>
+            </workspaceFilter>
+        """.trimIndent())
+
+        val result = WorkspaceFilterService().evaluate(selected)
+
+        assertEquals(WorkspaceFilterStatus.FULLY_INCLUDED, result.status)
+        assertEquals("/apps/site/components", result.selectedJcrPath)
+        assertEquals(listOf("/apps/site"), result.matchingFilterRoots)
+        assertNotNull(result.filterFingerprint)
+    }
+
+    @ParameterizedTest
+    @MethodSource("blockedFilters")
+    fun `reports non executable filters`(xml: String?, status: WorkspaceFilterStatus) {
+        val result = WorkspaceFilterService().evaluate(packageSelection(xml))
+        assertEquals(status, result.status)
+    }
+
+    @ParameterizedTest
+    @MethodSource("classificationFilters")
+    fun `classifies include exclude and overlapping filters`(xml: String, status: WorkspaceFilterStatus) {
+        assertEquals(status, WorkspaceFilterService().evaluate(packageSelection(xml)).status)
+    }
+
+    @Test
+    fun `classifies ancestor and ordered exclusion`() {
+        val ancestor = packageSelection("""
+            <workspaceFilter version="1.0">
+                <filter root="/apps/site/components"/>
+                <filter root="/apps/site/clientlibs"/>
+            </workspaceFilter>
+        """.trimIndent()).parent
+        val excluded = packageSelection("""
+            <workspaceFilter version="1.0">
+                <filter root="/apps/site">
+                    <exclude pattern="/apps/site/components(/.*)?"/>
+                </filter>
+            </workspaceFilter>
+        """.trimIndent())
+
+        assertEquals(WorkspaceFilterStatus.PARTIALLY_INCLUDED, WorkspaceFilterService().evaluate(ancestor).status)
+        assertEquals(WorkspaceFilterStatus.EXCLUDED, WorkspaceFilterService().evaluate(excluded).status)
+    }
+
+    @Test
+    fun `classifies regular file content xml and non package path`() {
+        val directory = packageSelection("<workspaceFilter><filter root=\"/apps/site\"/></workspaceFilter>")
+        val regular = directory.resolve("button.xml").also { Files.writeString(it, "test") }
+        assertEquals(WorkspaceFilterStatus.FULLY_INCLUDED, WorkspaceFilterService().evaluate(regular).status)
+
+        val excludedDirectory = packageSelection("<workspaceFilter><filter root=\"/apps/site\"><exclude pattern=\"/apps/site/components(/.*)?\"/></filter></workspaceFilter>")
+        val contentXml = excludedDirectory.resolve(".content.xml").also { Files.writeString(it, "<jcr:root/>") }
+        assertEquals(WorkspaceFilterStatus.EXCLUDED, WorkspaceFilterService().evaluate(contentXml).status)
+
+        assertEquals(
+            WorkspaceFilterStatus.NOT_IN_CONTENT_PACKAGE,
+            WorkspaceFilterService().evaluate(tempDir.resolve("outside")).status,
+        )
+    }
+
+    private fun packageSelection(filterXml: String?): Path {
+        val packageRoot = tempDir.resolve("ui.apps")
+        val selected = packageRoot.resolve("jcr_root/apps/site/components")
+        Files.createDirectories(selected)
+        if (filterXml != null) {
+            val filter = packageRoot.resolve("META-INF/vault/filter.xml")
+            Files.createDirectories(filter.parent)
+            Files.writeString(filter, filterXml)
+        }
+        return selected
+    }
+
+    companion object {
+        @JvmStatic
+        fun blockedFilters() = Stream.of(
+            Arguments.of(null, WorkspaceFilterStatus.FILTER_NOT_FOUND),
+            Arguments.of("<workspaceFilter version=\"1.0\"/>", WorkspaceFilterStatus.FILTER_EMPTY),
+            Arguments.of("<workspaceFilter>", WorkspaceFilterStatus.FILTER_INVALID),
+            Arguments.of(
+                "<workspaceFilter><filter root=\"/content/site\"/></workspaceFilter>",
+                WorkspaceFilterStatus.OUTSIDE_FILTER,
+            ),
+            Arguments.of(
+                "<workspaceFilter><filter root=\"/apps/site\"><include pattern=\"[\"/></filter></workspaceFilter>",
+                WorkspaceFilterStatus.FILTER_INVALID,
+            ),
+            Arguments.of(
+                "<workspaceFilter><filter root=\"/apps/site\" mode=\"unknown\"/></workspaceFilter>",
+                WorkspaceFilterStatus.FILTER_INVALID,
+            ),
+        )
+
+        @JvmStatic
+        fun classificationFilters() = Stream.of(
+            Arguments.of(
+                "<workspaceFilter><filter root=\"/apps/site\"><include pattern=\"/apps/site/clientlibs(/.*)?\"/></filter></workspaceFilter>",
+                WorkspaceFilterStatus.EXCLUDED,
+            ),
+            Arguments.of(
+                "<workspaceFilter><filter root=\"/apps/site\"><exclude pattern=\"/apps/site/components(/.*)?\"/><include pattern=\"/apps/site/components/public(/.*)?\"/></filter></workspaceFilter>",
+                WorkspaceFilterStatus.PARTIALLY_INCLUDED,
+            ),
+            Arguments.of(
+                "<workspaceFilter><filter root=\"/apps\"/><filter root=\"/apps/site\" type=\"cleanup\"/></workspaceFilter>",
+                WorkspaceFilterStatus.FULLY_INCLUDED,
+            ),
+        )
+    }
+}

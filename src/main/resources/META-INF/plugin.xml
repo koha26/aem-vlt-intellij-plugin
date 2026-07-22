@@ -29,6 +29,8 @@
                         serviceInterface="com.kdiachenko.aem.filevault.integration.service.IFileSystemService"/>
         <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.MetaInfService"
                         serviceInterface="com.kdiachenko.aem.filevault.integration.service.IMetaInfService"/>
+        <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.WorkspaceFilterService"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.service.IWorkspaceFilterService"/>
         <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.VaultOperationService"
                         serviceInterface="com.kdiachenko.aem.filevault.integration.service.IVaultOperationService"/>
         <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.factory.impl.VaultAppFactory"
