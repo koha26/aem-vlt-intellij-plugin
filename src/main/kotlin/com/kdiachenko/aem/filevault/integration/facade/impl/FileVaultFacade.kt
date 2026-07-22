@@ -5,14 +5,20 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
 import com.kdiachenko.aem.filevault.integration.dto.*
 import com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterBlockedException
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterExecutionScope
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterOperationOptions
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterScopedPathPolicy
 import com.kdiachenko.aem.filevault.integration.listener.OperationProgressTrackerListener
 import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
 import com.kdiachenko.aem.filevault.integration.service.IFileSystemService
 import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
 import com.kdiachenko.aem.filevault.integration.service.IVaultOperationService
+import com.kdiachenko.aem.filevault.integration.service.IWorkspaceFilterService
 import com.kdiachenko.aem.filevault.integration.service.impl.FileSystemService
 import com.kdiachenko.aem.filevault.integration.service.impl.MetaInfService
 import com.kdiachenko.aem.filevault.integration.service.impl.VaultOperationService
+import com.kdiachenko.aem.filevault.integration.service.impl.WorkspaceFilterService
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.util.JcrPathUtil.normalizeJcrPath
 import com.kdiachenko.aem.filevault.util.JcrPathUtil.toJcrPath
@@ -30,6 +36,7 @@ open class FileVaultFacade : IFileVaultFacade {
     private val fileSystemService: IFileSystemService = FileSystemService.getInstance()
     private val metaInfService: IMetaInfService = MetaInfService.getInstance()
     private val vaultOperationService: IVaultOperationService = VaultOperationService.getInstance()
+    private val workspaceFilterService: IWorkspaceFilterService = WorkspaceFilterService.getInstance()
 
     companion object {
         private const val JCR_ROOT = "jcr_root"
@@ -51,15 +58,22 @@ open class FileVaultFacade : IFileVaultFacade {
     override fun exportContent(
         serverConfig: DetailedAEMServerConfig,
         projectLocalFile: File,
-        indicator: ProgressIndicator
+        indicator: ProgressIndicator,
+        options: WorkspaceFilterOperationOptions,
     ): CompletableFuture<DetailedOperationResult> = CompletableFuture.supplyAsync {
         val jcrPath = projectLocalFile.toJcrPath() ?: return@supplyAsync failed("Invalid JCR path.")
         val normalizedJcrPath = jcrPath.normalizeJcrPath()
         var tmpDir: Path? = null
 
         try {
+            val scope = try {
+                workspaceFilterService.executionScope(projectLocalFile.toPath(), options)
+            } catch (e: WorkspaceFilterBlockedException) {
+                logger.info("Workspace filter blocked operation: ${e.validation.status} at ${e.validation.selectedJcrPath}")
+                return@supplyAsync failed(e.validation.message)
+            }
             indicator.progress("Preparing export operation...", 0.1)
-            tmpDir = setupExportOperation(normalizedJcrPath)
+            tmpDir = setupExportOperation(scope)
 
             indicator.progress("Exporting content from AEM...", 0.2)
             val progressTrackerListener = OperationProgressTrackerListener()
@@ -71,7 +85,7 @@ open class FileVaultFacade : IFileVaultFacade {
                 )
             )
             indicator.progress("Processing exported content...", 0.7)
-            val fileChangeTracker = processExportedContent(tmpDir, projectLocalFile, jcrPath)
+            val fileChangeTracker = processExportedContent(tmpDir, projectLocalFile, jcrPath, scope)
 
             indicator.progress("Cleaning up...", 0.9)
             val operationEntryDetails = fileChangeTracker.changes.map {
@@ -105,20 +119,40 @@ open class FileVaultFacade : IFileVaultFacade {
         }
     }
 
-    private fun setupExportOperation(normalizedJcrPath: String): Path {
+    fun exportContent(
+        serverConfig: DetailedAEMServerConfig,
+        projectLocalFile: File,
+        indicator: ProgressIndicator,
+    ): CompletableFuture<DetailedOperationResult> = exportContent(
+        serverConfig = serverConfig,
+        projectLocalFile = projectLocalFile,
+        indicator = indicator,
+        options = WorkspaceFilterOperationOptions(),
+    )
+
+    private fun setupExportOperation(scope: WorkspaceFilterExecutionScope): Path {
         val tmpDir = fileSystemService.createTempDirectory()
-        metaInfService.createFilterXml(tmpDir, VltFilter(normalizedJcrPath))
+        metaInfService.createFilterXml(tmpDir, scope.workspaceFilter)
         return tmpDir
     }
 
-    private fun processExportedContent(tmpDir: Path, projectLocalFile: File, jcrPath: String): FileChangeTracker {
+    private fun processExportedContent(
+        tmpDir: Path,
+        projectLocalFile: File,
+        jcrPath: String,
+        scope: WorkspaceFilterExecutionScope,
+    ): FileChangeTracker {
         val targetPath = projectLocalFile.toPath()
         val fileChangeTracker = FileChangeTracker()
         val exportedContentPath = tmpDir.resolve("$JCR_ROOT$jcrPath")
+        val policy = WorkspaceFilterScopedPathPolicy(
+            scope.validation.selectedJcrPath!!,
+            scope.workspaceFilter,
+        )
 
         when {
             Files.isDirectory(exportedContentPath) && Files.exists(exportedContentPath) -> {
-                fileSystemService.copyDirectory(exportedContentPath, targetPath, fileChangeTracker)
+                fileSystemService.synchronizeDirectory(exportedContentPath, targetPath, fileChangeTracker, policy)
                 logger.info("Successfully copied content from $exportedContentPath to $targetPath")
             }
 
@@ -150,17 +184,24 @@ open class FileVaultFacade : IFileVaultFacade {
     override fun importContent(
         serverConfig: DetailedAEMServerConfig,
         projectLocalFile: File,
-        indicator: ProgressIndicator
+        indicator: ProgressIndicator,
+        options: WorkspaceFilterOperationOptions,
     ): CompletableFuture<DetailedOperationResult> = CompletableFuture.supplyAsync {
         val jcrPath = projectLocalFile.toJcrPath() ?: return@supplyAsync failed("Invalid JCR path.")
         var tmpDir: Path? = null
 
         try {
+            val scope = try {
+                workspaceFilterService.executionScope(projectLocalFile.toPath(), options)
+            } catch (e: WorkspaceFilterBlockedException) {
+                logger.info("Workspace filter blocked operation: ${e.validation.status} at ${e.validation.selectedJcrPath}")
+                return@supplyAsync failed(e.validation.message)
+            }
             indicator.progress("Preparing import operation...", 0.1)
-            tmpDir = prepareImportDirectory(jcrPath, projectLocalFile)
+            tmpDir = prepareImportDirectory(scope)
 
             indicator.progress("Preparing content for import...", 0.3)
-            copyContentToImportDirectory(projectLocalFile, tmpDir, jcrPath)
+            copyContentToImportDirectory(projectLocalFile, tmpDir, jcrPath, scope)
 
             indicator.progress("Importing content to AEM...", 0.5)
             val progressTrackerListener = OperationProgressTrackerListener()
@@ -199,55 +240,52 @@ open class FileVaultFacade : IFileVaultFacade {
         }
     }
 
-    private fun prepareImportDirectory(
-        jcrPath: String,
-        projectLocalFile: File
-    ): Path {
+    fun importContent(
+        serverConfig: DetailedAEMServerConfig,
+        projectLocalFile: File,
+        indicator: ProgressIndicator,
+    ): CompletableFuture<DetailedOperationResult> = importContent(
+        serverConfig = serverConfig,
+        projectLocalFile = projectLocalFile,
+        indicator = indicator,
+        options = WorkspaceFilterOperationOptions(),
+    )
+
+    private fun prepareImportDirectory(scope: WorkspaceFilterExecutionScope): Path {
         val tmpDir = fileSystemService.createTempDirectory()
-        val normalizedJcrPath = jcrPath.normalizeJcrPath()
-        val filter = createFilterForImport(projectLocalFile, jcrPath, normalizedJcrPath)
-        metaInfService.createFilterXml(tmpDir, filter)
+        metaInfService.createFilterXml(tmpDir, scope.workspaceFilter)
         return tmpDir
     }
 
     private fun copyContentToImportDirectory(
         projectLocalFile: File,
         tmpDir: Path,
-        jcrPath: String
+        jcrPath: String,
+        scope: WorkspaceFilterExecutionScope,
     ): FileChangeTracker {
         val jcrRootPath = tmpDir.resolve(JCR_ROOT)
         val contentPath = jcrRootPath.resolve(jcrPath.substring(1))
-        Files.createDirectories(contentPath)
+        val policy = WorkspaceFilterScopedPathPolicy(
+            scope.validation.selectedJcrPath!!,
+            scope.workspaceFilter,
+        )
 
         val sourcePath = projectLocalFile.toPath()
         return FileChangeTracker().apply {
             when {
                 Files.isDirectory(sourcePath) -> {
-                    fileSystemService.copyDirectory(sourcePath, contentPath, this)
+                    Files.createDirectories(contentPath)
+                    fileSystemService.synchronizeDirectory(sourcePath, contentPath, this, policy)
                     logger.info("Copied directory from $sourcePath to $contentPath")
                 }
 
                 Files.isRegularFile(sourcePath) -> {
+                    Files.createDirectories(contentPath.parent)
                     fileSystemService.copyFile(sourcePath, contentPath, this)
                     logger.info("Copied file from $sourcePath to $contentPath")
                 }
             }
         }
-    }
-
-    private fun createFilterForImport(
-        projectLocalFile: File,
-        jcrPath: String,
-        normalizedJcrPath: String
-    ): VltFilter {
-        if (jcrPath.endsWith("/.content.xml")) {
-            val closestResources = projectLocalFile.parentFile.listFiles { it.name != ".content.xml" }
-            val excludePatterns =
-                closestResources.map { resource -> normalizedJcrPath + "/" + resource.name + "(/.*)?" }
-
-            return VltFilter(root = normalizedJcrPath, excludePatterns = excludePatterns)
-        }
-        return VltFilter(normalizedJcrPath)
     }
 
     fun List<OperationEntryDetail>.filterOutNothingChanged(): List<OperationEntryDetail> =

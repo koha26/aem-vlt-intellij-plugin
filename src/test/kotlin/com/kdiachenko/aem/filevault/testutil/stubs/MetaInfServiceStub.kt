@@ -1,13 +1,13 @@
 package com.kdiachenko.aem.filevault.stubs
 
-import com.kdiachenko.aem.filevault.integration.dto.VltFilter
 import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
+import org.apache.jackrabbit.vault.fs.api.WorkspaceFilter
 import java.nio.file.Path
 
 class MetaInfServiceStub : IMetaInfService {
-    val createFilterXmlCalls = mutableListOf<Pair<Path, VltFilter>>()
+    val workspaceFilters = mutableListOf<Pair<Path, WorkspaceFilter>>()
 
-    override fun createFilterXml(tmpDir: Path, vltFilter: VltFilter) {
-        createFilterXmlCalls.add(Pair(tmpDir, vltFilter))
+    override fun createFilterXml(tmpDir: Path, workspaceFilter: WorkspaceFilter) {
+        workspaceFilters.add(tmpDir to workspaceFilter)
     }
 }

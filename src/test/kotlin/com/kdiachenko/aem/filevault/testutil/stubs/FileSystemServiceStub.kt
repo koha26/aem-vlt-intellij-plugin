@@ -17,8 +17,10 @@ class FileSystemServiceStub(val tempDir: Path) : IFileSystemService {
     var copiedFiles = mutableListOf<Pair<Path, Path>>()
     var deletedDirectories = mutableListOf<Path?>()
     var synchronizedDirectories = mutableListOf<SynchronizedDirectoryCall>()
+    var createdTempDirectories = mutableListOf<Path>()
 
     override fun createTempDirectory(): Path {
+        createdTempDirectories.add(tempDir)
         return tempDir
     }
 

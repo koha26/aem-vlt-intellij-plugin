@@ -7,19 +7,30 @@ import com.intellij.testFramework.unregisterService
 import com.intellij.util.application
 import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import com.kdiachenko.aem.filevault.integration.dto.OperationEntryDetail
-import com.kdiachenko.aem.filevault.integration.dto.VltFilter
 import com.kdiachenko.aem.filevault.integration.dto.VltOperationContext
 import com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterExecutionScope
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterOperationOptions
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterStatus
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterValidationResult
 import com.kdiachenko.aem.filevault.integration.service.IFileSystemService
 import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
 import com.kdiachenko.aem.filevault.integration.service.IVaultOperationService
+import com.kdiachenko.aem.filevault.integration.service.IWorkspaceFilterService
+import com.kdiachenko.aem.filevault.integration.service.impl.FileSystemService
 import com.kdiachenko.aem.filevault.integration.service.impl.MetaInfService
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.stubs.FileSystemServiceStub
 import com.kdiachenko.aem.filevault.stubs.MetaInfServiceStub
 import com.kdiachenko.aem.filevault.stubs.ProgressIndicatorStub
 import com.kdiachenko.aem.filevault.stubs.VaultOperationServiceStub
+import com.kdiachenko.aem.filevault.stubs.WorkspaceFilterServiceStub
 import com.kdiachenko.aem.filevault.testutil.dsl.structure
+import com.kdiachenko.aem.filevault.util.JcrPathUtil.resolveContentPackage
+import org.apache.jackrabbit.vault.fs.api.PathFilterSet
+import org.apache.jackrabbit.vault.fs.config.DefaultWorkspaceFilter
+import java.io.File
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.pathString
@@ -36,6 +47,9 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
     private lateinit var serverConfig: DetailedAEMServerConfig
     private lateinit var progressIndicator: ProgressIndicatorStub
     private lateinit var tempDir: Path
+    private lateinit var workspaceFilterServiceStub: WorkspaceFilterServiceStub
+    private lateinit var selectedDirectory: File
+    private lateinit var selectedFile: File
 
     override fun setUp() {
         super.setUp()
@@ -46,6 +60,16 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
         fileSystemServiceStub = registerFileSystemService()
         metaInfServiceStub = registerMetaInfServiceStub()
         vaultOperationServiceStub = registerVaultOperationServiceStub()
+        workspaceFilterServiceStub = WorkspaceFilterServiceStub()
+        application.unregisterService(IWorkspaceFilterService::class.java)
+        application.registerServiceInstance(IWorkspaceFilterService::class.java, workspaceFilterServiceStub)
+
+        val packageRoot = tempDir.resolve("fixture-package")
+        selectedDirectory = packageRoot.resolve("jcr_root/apps/site/components").toFile()
+        selectedDirectory.mkdirs()
+        selectedFile = selectedDirectory.toPath().resolve(".content.xml").also {
+            Files.writeString(it, "<jcr:root/>")
+        }.toFile()
 
         serverConfig = DetailedAEMServerConfig(
             id = "test-id",
@@ -104,9 +128,9 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
         val result = fileVaultFacade.exportContent(serverConfig, projectLocalFile, progressIndicator).get()
 
         assertTrue("Export should succeed but failed with: ${result.message}", result.success)
-        assertEquals(1, metaInfServiceStub.createFilterXmlCalls.size)
-        assertEquals(tempDir.pathString, metaInfServiceStub.createFilterXmlCalls[0].first.pathString)
-        assertEquals(VltFilter("/content/project/en"), metaInfServiceStub.createFilterXmlCalls[0].second)
+        assertEquals(1, metaInfServiceStub.workspaceFilters.size)
+        assertEquals(tempDir.pathString, metaInfServiceStub.workspaceFilters[0].first.pathString)
+        assertEquals(listOf("/content/project/en"), metaInfServiceStub.workspaceFilters[0].second.filterSets.map { it.root })
     }
 
     fun `test exportContent should create filter_xml file when selected file is folder`() {
@@ -117,9 +141,9 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
         val result = fileVaultFacade.exportContent(serverConfig, projectLocalFile, progressIndicator).get()
 
         assertTrue("Export should succeed but failed with: ${result.message}", result.success)
-        assertEquals(1, metaInfServiceStub.createFilterXmlCalls.size)
-        assertEquals(tempDir.pathString, metaInfServiceStub.createFilterXmlCalls[0].first.pathString)
-        assertEquals(VltFilter("/content/project/en"), metaInfServiceStub.createFilterXmlCalls[0].second)
+        assertEquals(1, metaInfServiceStub.workspaceFilters.size)
+        assertEquals(tempDir.pathString, metaInfServiceStub.workspaceFilters[0].first.pathString)
+        assertEquals(listOf("/content/project/en"), metaInfServiceStub.workspaceFilters[0].second.filterSets.map { it.root })
     }
 
     fun `test exportContent should create filter_xml file when selected file has closest folders`() {
@@ -131,9 +155,9 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
 
         assertTrue("Export should succeed but failed with: ${result.message}", result.success)
         val metaInfServiceStub = MetaInfService.getInstance() as MetaInfServiceStub
-        assertEquals(1, metaInfServiceStub.createFilterXmlCalls.size)
-        assertEquals(tempDir.pathString, metaInfServiceStub.createFilterXmlCalls[0].first.pathString)
-        assertEquals(VltFilter("/content/project/en"), metaInfServiceStub.createFilterXmlCalls[0].second)
+        assertEquals(1, metaInfServiceStub.workspaceFilters.size)
+        assertEquals(tempDir.pathString, metaInfServiceStub.workspaceFilters[0].first.pathString)
+        assertEquals(listOf("/content/project/en"), metaInfServiceStub.workspaceFilters[0].second.filterSets.map { it.root })
     }
 
     fun `test exportContent should copy selected file`() {
@@ -143,13 +167,9 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
 
         vaultOperationServiceStub = registerVaultOperationServiceStub(object : VaultOperationServiceStub() {
             override fun export(context: VltOperationContext) {
-                tempDir.structure {
-                    folder("jcr_root/content/project/en") {
-                        file(".content.xml")
-                        folder("nested")
-                        folder("clientlibs")
-                    }
-                }
+                val exportedFile = tempDir.resolve("jcr_root/content/project/en")
+                Files.createDirectories(exportedFile.parent)
+                Files.writeString(exportedFile, "<jcr:root/>")
             }
         })
         fileVaultFacade = createNewFileFaultFacade()
@@ -161,7 +181,7 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
         assertEquals(1, fileSystemServiceStub.copiedFiles.size)
         val copiedFile = fileSystemServiceStub.copiedFiles[0]
         assertEquals(
-            tempDir.resolve("jcr_root/content/project/en/.content.xml").pathString,
+            tempDir.resolve("jcr_root/content/project/en").pathString,
             copiedFile.first.pathString
         )
         assertEquals(
@@ -191,15 +211,15 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
         val result = fileVaultFacade.exportContent(serverConfig, projectLocalFile, progressIndicator).get()
 
         assertTrue(result.success)
-        assertEquals(1, fileSystemServiceStub.copiedDirectories.size)
-        val copiedDirectory = fileSystemServiceStub.copiedDirectories[0]
+        assertEquals(1, fileSystemServiceStub.synchronizedDirectories.size)
+        val copiedDirectory = fileSystemServiceStub.synchronizedDirectories[0]
         assertEquals(
             tempDir.resolve("jcr_root/content/project/en").pathString,
-            copiedDirectory.first.pathString
+            copiedDirectory.source.pathString
         )
         assertEquals(
             sourceDirectory.resolve("jcr_root/content/project/en").pathString,
-            copiedDirectory.second.pathString
+            copiedDirectory.target.pathString
         )
         assertEquals(0, fileSystemServiceStub.copiedFiles.size)
     }
@@ -276,9 +296,9 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
         val result = fileVaultFacade.importContent(serverConfig, projectLocalFile, progressIndicator).get()
 
         assertTrue("Export should succeed but failed with: ${result.message}", result.success)
-        assertEquals(1, metaInfServiceStub.createFilterXmlCalls.size)
-        assertEquals(tempDir.pathString, metaInfServiceStub.createFilterXmlCalls[0].first.pathString)
-        assertEquals(VltFilter("/content/project/en"), metaInfServiceStub.createFilterXmlCalls[0].second)
+        assertEquals(1, metaInfServiceStub.workspaceFilters.size)
+        assertEquals(tempDir.pathString, metaInfServiceStub.workspaceFilters[0].first.pathString)
+        assertEquals(listOf("/content/project/en"), metaInfServiceStub.workspaceFilters[0].second.filterSets.map { it.root })
     }
 
     fun `test importContent should create filter_xml file when selected file is folder`() {
@@ -289,9 +309,9 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
         val result = fileVaultFacade.importContent(serverConfig, projectLocalFile, progressIndicator).get()
 
         assertTrue("Export should succeed but failed with: ${result.message}", result.success)
-        assertEquals(1, metaInfServiceStub.createFilterXmlCalls.size)
-        assertEquals(tempDir.pathString, metaInfServiceStub.createFilterXmlCalls[0].first.pathString)
-        assertEquals(VltFilter("/content/project/en"), metaInfServiceStub.createFilterXmlCalls[0].second)
+        assertEquals(1, metaInfServiceStub.workspaceFilters.size)
+        assertEquals(tempDir.pathString, metaInfServiceStub.workspaceFilters[0].first.pathString)
+        assertEquals(listOf("/content/project/en"), metaInfServiceStub.workspaceFilters[0].second.filterSets.map { it.root })
     }
 
     fun `test importContent should create filter_xml file when selected file has closest folders`() {
@@ -302,18 +322,65 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
         val result = fileVaultFacade.importContent(serverConfig, projectLocalFile, progressIndicator).get()
 
         assertTrue("Export should succeed but failed with: ${result.message}", result.success)
-        assertEquals(1, metaInfServiceStub.createFilterXmlCalls.size)
-        assertEquals(tempDir.pathString, metaInfServiceStub.createFilterXmlCalls[0].first.pathString)
-        val expected = VltFilter(
-            "/content/project/en",
-            "",
-            listOf("/content/project/en/clientlibs(/.*)?", "/content/project/en/nested(/.*)?")
+        assertEquals(1, metaInfServiceStub.workspaceFilters.size)
+        assertEquals(tempDir.pathString, metaInfServiceStub.workspaceFilters[0].first.pathString)
+        assertEquals(listOf("/content/project/en"), metaInfServiceStub.workspaceFilters[0].second.filterSets.map { it.root })
+    }
+
+    fun `test import blocks before temp creation when filter is outside scope`() {
+        workspaceFilterServiceStub.blockWith(WorkspaceFilterStatus.OUTSIDE_FILTER, selectedFile.toPath())
+
+        val result = fileVaultFacade.importContent(serverConfig, selectedFile, progressIndicator).get()
+
+        assertFalse(result.success)
+        assertEquals(WorkspaceFilterStatus.OUTSIDE_FILTER.name, result.message)
+        assertTrue(fileSystemServiceStub.createdTempDirectories.isEmpty())
+        assertTrue(vaultOperationServiceStub.importCalls.isEmpty())
+    }
+
+    fun `test import writes effective filter and stages with scoped policy`() {
+        workspaceFilterServiceStub.allow(scopeFor("/apps/site/components"))
+
+        val result = fileVaultFacade.importContent(
+            serverConfig,
+            selectedDirectory,
+            progressIndicator,
+            WorkspaceFilterOperationOptions(partialScopeApproved = true),
+        ).get()
+
+        assertTrue(result.success)
+        assertSame(workspaceFilterServiceStub.scope!!.workspaceFilter, metaInfServiceStub.workspaceFilters.single().second)
+        assertEquals(1, fileSystemServiceStub.synchronizedDirectories.size)
+        assertEquals(1, vaultOperationServiceStub.importCalls.size)
+        assertEquals(
+            selectedDirectory.toPath() to WorkspaceFilterOperationOptions(partialScopeApproved = true),
+            workspaceFilterServiceStub.executionCalls.single(),
         )
-        val actualVltFilter = metaInfServiceStub.createFilterXmlCalls[0].second
-        assertEquals(expected.root, actualVltFilter.root)
-        assertEquals(expected.mode, actualVltFilter.mode)
-        assertSameElements(expected.excludePatterns, actualVltFilter.excludePatterns)
-        assertEquals(expected.includePatterns, actualVltFilter.includePatterns)
+    }
+
+    fun `test export uses same effective scope for FileVault and local deletion`() {
+        workspaceFilterServiceStub.allow(scopeFor("/apps/site/components"))
+        vaultOperationServiceStub = registerVaultOperationServiceStub(object : VaultOperationServiceStub() {
+            override fun export(context: VltOperationContext) {
+                exportCalls.add(context)
+                val exportedDirectory = Path.of(context.localAbsPath).resolve("jcr_root/apps/site/components")
+                Files.createDirectories(exportedDirectory)
+                Files.writeString(exportedDirectory.resolve(".content.xml"), "<jcr:root/>")
+            }
+        })
+        fileVaultFacade = createNewFileFaultFacade()
+
+        val result = fileVaultFacade.exportContent(
+            serverConfig,
+            selectedDirectory,
+            progressIndicator,
+            WorkspaceFilterOperationOptions(partialScopeApproved = true),
+        ).get()
+
+        assertTrue(result.success)
+        assertSame(workspaceFilterServiceStub.scope!!.workspaceFilter, metaInfServiceStub.workspaceFilters.single().second)
+        assertEquals(1, fileSystemServiceStub.synchronizedDirectories.size)
+        assertEquals(1, vaultOperationServiceStub.exportCalls.size)
     }
 
     fun `test importContent should copy selected file before import`() {
@@ -336,7 +403,7 @@ class FileVaultFacadeTest : BasePlatformTestCase() {
         assertTrue(result.success)
         assertEquals(
             """
-Successfully imported content from /content/project/en/.content.xml.
+Successfully imported content from /content/project/en.
 <br/>Nodes changes statistic:
  | Added: 1
         """.trimIndent(), result.message.trimIndent()
@@ -351,9 +418,29 @@ Successfully imported content from /content/project/en/.content.xml.
             copiedFile.first.pathString
         )
         assertEquals(
-            tempDir.resolve("jcr_root/content/project/en/.content.xml").pathString,
+            tempDir.resolve("jcr_root/content/project/en").pathString,
             copiedFile.second.pathString
         )
+    }
+
+    fun `test importContent stages content xml as regular file`() {
+        application.unregisterService(IFileSystemService::class.java)
+        application.registerServiceInstance(IFileSystemService::class.java, FileSystemService())
+        var stagedPath: Path? = null
+        vaultOperationServiceStub = registerVaultOperationServiceStub(object : VaultOperationServiceStub() {
+            override fun import(context: VltOperationContext) {
+                importCalls.add(context)
+                stagedPath = Path.of(context.localAbsPath).resolve("jcr_root/apps/site/components")
+                assertTrue(Files.isRegularFile(stagedPath))
+                assertFalse(Files.isDirectory(stagedPath))
+            }
+        })
+        fileVaultFacade = createNewFileFaultFacade()
+
+        val result = fileVaultFacade.importContent(serverConfig, selectedFile, progressIndicator).get()
+
+        assertTrue(result.success)
+        assertNotNull(stagedPath)
     }
 
     fun `test importContent should copy selected folder before import`() {
@@ -398,15 +485,15 @@ Updated: 1 | Removed: 1 | Error: 1
             result.entries[2]
         )
 
-        assertEquals(1, fileSystemServiceStub.copiedDirectories.size)
-        val copiedDirectory = fileSystemServiceStub.copiedDirectories[0]
+        assertEquals(1, fileSystemServiceStub.synchronizedDirectories.size)
+        val copiedDirectory = fileSystemServiceStub.synchronizedDirectories[0]
         assertEquals(
             sourceDirectory.resolve("jcr_root/content/project/en").pathString,
-            copiedDirectory.first.pathString
+            copiedDirectory.source.pathString
         )
         assertEquals(
             tempDir.resolve("jcr_root/content/project/en").pathString,
-            copiedDirectory.second.pathString
+            copiedDirectory.target.pathString
         )
         assertEquals(0, fileSystemServiceStub.copiedFiles.size)
     }
@@ -497,6 +584,26 @@ Updated: 1 | Removed: 1 | Error: 1
         project.unregisterService(IFileVaultFacade::class.java)
         project.registerServiceInstance(IFileVaultFacade::class.java, FileVaultFacade())
         return FileVaultFacade.getInstance(project) as FileVaultFacade
+    }
+
+    private fun scopeFor(root: String): WorkspaceFilterExecutionScope {
+        val contentPackage = selectedDirectory.toPath().resolveContentPackage()!!
+        val filter = DefaultWorkspaceFilter().apply {
+            add(PathFilterSet(root))
+        }
+        val validation = WorkspaceFilterValidationResult(
+            status = WorkspaceFilterStatus.FULLY_INCLUDED,
+            selectedLocalPath = selectedDirectory.toPath().toAbsolutePath().normalize(),
+            selectedJcrPath = root,
+            packageRoot = contentPackage.packageRoot,
+            filterFile = contentPackage.filterFile,
+            matchingFilterRoots = listOf(root),
+            effectiveFilterRoots = listOf(root),
+            filterFingerprint = "fingerprint",
+            message = "Included",
+            addToFilterApplicable = false,
+        )
+        return WorkspaceFilterExecutionScope(validation, filter)
     }
 
     private fun createSourceDirectory(): Path = createTempDirectory(getTestName(true) + "-source")

@@ -1,12 +1,15 @@
 package com.kdiachenko.aem.filevault.integration.service.impl
 
-import com.kdiachenko.aem.filevault.integration.dto.VltFilter
 import com.kdiachenko.aem.filevault.integration.service.IMetaInfService
+import org.apache.jackrabbit.vault.fs.api.ImportMode
+import org.apache.jackrabbit.vault.fs.config.DefaultWorkspaceFilter
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.ByteArrayInputStream
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -25,91 +28,47 @@ class MetaInfServiceTest {
     }
 
     @Test
-    fun testCreateFilterXmlWithoutModeAndPatterns() {
+    fun `createFilterXml copies workspace filter roots and rules`() {
         tempDir = createMetaInfTestDir()
+        val workspaceFilter = DefaultWorkspaceFilter().apply {
+            load(
+                ByteArrayInputStream(
+                    """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <workspaceFilter version="1.0">
+                        <filter root="/content/test" mode="merge_properties">
+                            <include pattern="/content/test(/.*)?"/>
+                            <exclude pattern="/content/test/private(/.*)?"/>
+                        </filter>
+                        <filter root="/conf/test" type="cleanup"/>
+                    </workspaceFilter>
+                    """.trimIndent().toByteArray()
+                )
+            )
+        }
 
-        val filter = VltFilter(root = "/content/test")
-        createAndVerifyFilterXml(
-            filter, """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <workspaceFilter version="1.0">
-                <filter root="/content/test"/>
-            </workspaceFilter>
-        """.trimIndent()
-        )
-    }
+        service.createFilterXml(tempDir, workspaceFilter)
 
-    @Test
-    fun testCreateFilterXmlWithMode() {
-        tempDir = createMetaInfTestDir()
+        val metaInfDir = tempDir.resolve("META-INF/vault")
+        assertTrue(Files.exists(metaInfDir))
+        assertTrue(Files.isDirectory(metaInfDir))
 
-        val filter = VltFilter(
-            root = "/content/test",
-            mode = "merge"
-        )
+        val filterFile = metaInfDir.resolve("filter.xml")
+        assertTrue(Files.exists(filterFile))
 
-        createAndVerifyFilterXml(
-            filter, """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <workspaceFilter version="1.0">
-                <filter root="/content/test" mode="merge"/>
-            </workspaceFilter>
-        """.trimIndent()
-        )
-    }
-
-    @Test
-    fun testCreateFilterXmlWithIncludeAndExcludePatterns() {
-        tempDir = createMetaInfTestDir()
-
-        val filter = VltFilter(
-            root = "/content/test",
-            mode = "merge",
-            includePatterns = listOf("/content/test/include1", "/content/test/include2"),
-            excludePatterns = listOf("/content/test/exclude1", "/content/test/exclude2")
-        )
-
-        createAndVerifyFilterXml(
-            filter, """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <workspaceFilter version="1.0">
-                <filter root="/content/test" mode="merge"><include pattern="/content/test/include1"/><include pattern="/content/test/include2"/><exclude pattern="/content/test/exclude1"/><exclude pattern="/content/test/exclude2"/></filter>
-            </workspaceFilter>
-        """.trimIndent()
-        )
+        val reloaded = DefaultWorkspaceFilter().apply {
+            load(filterFile.toFile())
+        }
+        assertEquals(listOf("/content/test", "/conf/test"), reloaded.filterSets.map { it.root })
+        assertEquals(ImportMode.MERGE_PROPERTIES, reloaded.filterSets[0].importMode)
+        assertEquals("cleanup", reloaded.filterSets[1].type)
+        assertTrue(reloaded.contains("/content/test/en"))
+        assertFalse(reloaded.contains("/content/test/private"))
     }
 
     private fun createMetaInfTestDir(): Path {
         val resolve = tempFolder?.resolve("meta-inf-test") ?: throw Exception("Temp dir is null")
         resolve.toFile().mkdir()
         return resolve
-    }
-
-
-    private fun createAndVerifyFilterXml(filter: VltFilter, expectedContent: String) {
-        val tempDir = tempFolder ?: throw Exception("Temp dir is null")
-        try {
-            service.createFilterXml(tempDir, filter)
-
-            val metaInfDir = tempDir.resolve("META-INF/vault")
-            assertTrue(Files.exists(metaInfDir))
-            assertTrue(Files.isDirectory(metaInfDir))
-
-            val filterFile = metaInfDir.resolve("filter.xml")
-            assertTrue(Files.exists(filterFile))
-
-            val content = String(Files.readAllBytes(filterFile))
-            assertEquals(expectedContent, content)
-        } finally {
-            deleteDirectory(tempDir)
-        }
-    }
-
-    private fun deleteDirectory(directory: Path) {
-        if (Files.exists(directory)) {
-            Files.walk(directory)
-                .sorted(Comparator.reverseOrder())
-                .forEach(Files::delete)
-        }
     }
 }
