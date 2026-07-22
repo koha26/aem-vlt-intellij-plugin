@@ -1,5 +1,7 @@
 package com.kdiachenko.aem.filevault.integration.service.impl
 
+import com.kdiachenko.aem.filevault.integration.filter.ScopedPathDecision
+import com.kdiachenko.aem.filevault.integration.filter.ScopedPathPolicy
 import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
 import com.kdiachenko.aem.filevault.integration.service.IFileSystemService
@@ -319,5 +321,50 @@ class FileSystemServiceTest {
             service.deleteDirectory(sourceDir)
             service.deleteDirectory(targetDir)
         }
+    }
+
+    @Test
+    fun `scoped synchronization preserves excluded targets and deletes missing included files`() {
+        val source = tempFolder?.resolve("source-scoped") ?: throw Exception("Temp dir is null")
+        val target = tempFolder?.resolve("target-scoped") ?: throw Exception("Temp dir is null")
+        Files.createDirectories(source.resolve("included"))
+        Files.createDirectories(target.resolve("included"))
+        Files.createDirectories(target.resolve("excluded"))
+        Files.writeString(source.resolve("included/current.txt"), "new")
+        Files.writeString(target.resolve("included/stale.txt"), "stale")
+        Files.writeString(target.resolve("excluded/keep.txt"), "keep")
+        val policy = ScopedPathPolicy { relative, directory ->
+            when {
+                relative.startsWith("included") -> ScopedPathDecision.INCLUDE
+                directory -> ScopedPathDecision.TRAVERSE_ONLY
+                else -> ScopedPathDecision.EXCLUDE
+            }
+        }
+
+        service.synchronizeDirectory(source, target, FileChangeTracker(), policy)
+
+        assertTrue(Files.exists(target.resolve("included/current.txt")))
+        assertFalse(Files.exists(target.resolve("included/stale.txt")))
+        assertEquals("keep", Files.readString(target.resolve("excluded/keep.txt")))
+    }
+
+    @Test
+    fun `scoped synchronization keeps included directory containing excluded child`() {
+        val source = tempFolder?.resolve("source-non-empty") ?: throw Exception("Temp dir is null")
+        val target = tempFolder?.resolve("target-non-empty") ?: throw Exception("Temp dir is null")
+        Files.createDirectories(source)
+        Files.createDirectories(target.resolve("mixed"))
+        Files.writeString(target.resolve("mixed/excluded.txt"), "keep")
+        val policy = ScopedPathPolicy { relative, directory ->
+            when {
+                relative == Path.of("mixed") && directory -> ScopedPathDecision.INCLUDE
+                else -> ScopedPathDecision.EXCLUDE
+            }
+        }
+
+        service.synchronizeDirectory(source, target, FileChangeTracker(), policy)
+
+        assertTrue(Files.isDirectory(target.resolve("mixed")))
+        assertEquals("keep", Files.readString(target.resolve("mixed/excluded.txt")))
     }
 }

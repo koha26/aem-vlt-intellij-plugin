@@ -2,6 +2,8 @@ package com.kdiachenko.aem.filevault.integration.service.impl
 
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
+import com.kdiachenko.aem.filevault.integration.filter.ScopedPathDecision
+import com.kdiachenko.aem.filevault.integration.filter.ScopedPathPolicy
 import com.kdiachenko.aem.filevault.integration.dto.OperationAction
 import com.kdiachenko.aem.filevault.integration.service.FileChangeTracker
 import com.kdiachenko.aem.filevault.integration.service.IFileSystemService
@@ -94,6 +96,59 @@ class FileSystemService : IFileSystemService {
                     } else {
                         tracker.addChange(OperationAction.NOTHING_CHANGED, targetFile.toString(), "Content unchanged")
                     }
+                }
+                return FileVisitResult.CONTINUE
+            }
+        })
+    }
+
+    override fun synchronizeDirectory(source: Path, target: Path, tracker: FileChangeTracker, policy: ScopedPathPolicy) {
+        Files.createDirectories(target)
+
+        Files.walkFileTree(target, object : SimpleFileVisitor<Path>() {
+            override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                val relative = target.relativize(file)
+                if (policy.decide(relative, false) == ScopedPathDecision.INCLUDE &&
+                    !Files.exists(source.resolve(relative))
+                ) {
+                    Files.delete(file)
+                    tracker.addChange(OperationAction.DELETED, file.toString(), "File not in filtered source")
+                }
+                return FileVisitResult.CONTINUE
+            }
+
+            override fun postVisitDirectory(dir: Path, exc: IOException?): FileVisitResult {
+                if (dir != target) {
+                    val relative = target.relativize(dir)
+                    if (policy.decide(relative, true) == ScopedPathDecision.INCLUDE &&
+                        !Files.exists(source.resolve(relative)) &&
+                        Files.newDirectoryStream(dir).use { !it.iterator().hasNext() }
+                    ) {
+                        Files.delete(dir)
+                        tracker.addChange(OperationAction.DELETED, dir.toString(), "Empty directory not in filtered source")
+                    }
+                }
+                return FileVisitResult.CONTINUE
+            }
+        })
+
+        Files.walkFileTree(source, object : SimpleFileVisitor<Path>() {
+            override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
+                val relative = source.relativize(dir)
+                return when (policy.decide(relative, true)) {
+                    ScopedPathDecision.EXCLUDE -> FileVisitResult.SKIP_SUBTREE
+                    ScopedPathDecision.INCLUDE,
+                    ScopedPathDecision.TRAVERSE_ONLY -> {
+                        Files.createDirectories(target.resolve(relative))
+                        FileVisitResult.CONTINUE
+                    }
+                }
+            }
+
+            override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                val relative = source.relativize(file)
+                if (policy.decide(relative, false) == ScopedPathDecision.INCLUDE) {
+                    copyFile(file, target.resolve(relative), tracker)
                 }
                 return FileVisitResult.CONTINUE
             }
