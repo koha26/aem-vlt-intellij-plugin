@@ -1,28 +1,46 @@
 package com.kdiachenko.aem.filevault.util
 
-import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.VirtualFile
+import com.kdiachenko.aem.filevault.integration.filter.ContentPackageContext
 import java.io.File
+import java.nio.file.Path
 
 /**
  * Utility class for working with JCR paths
  */
 object JcrPathUtil {
 
-    fun File.toJcrPath(): String? = this.absolutePath.toJcrPath()
+    private const val JCR_ROOT = "jcr_root"
 
-    fun VirtualFile.toJcrPath(): String? = this.path.toJcrPath()
+    fun Path.resolveContentPackage(): ContentPackageContext? {
+        val absolute = toAbsolutePath().normalize()
+        val jcrRoot = generateSequence(absolute) { it.parent }
+            .firstOrNull { it.fileName?.toString() == JCR_ROOT }
+            ?: return null
+        val packageRoot = jcrRoot.parent ?: return null
+        return ContentPackageContext(
+            packageRoot = packageRoot,
+            jcrRoot = jcrRoot,
+            filterFile = packageRoot.resolve("META-INF").resolve("vault").resolve("filter.xml"),
+        )
+    }
 
-    fun String.toJcrPath(): String? {
-        val absolutePath = this
-        if (absolutePath.indexOf("jcr_root") == -1) {
-            return null
-        }
-        val jcrPath = absolutePath.substring(absolutePath.indexOf("jcr_root") + "jcr_root".length)
-        if (jcrPath.isEmpty()) {
-            return "/"
-        }
-        return FileUtil.normalize(jcrPath)
+    fun Path.toNormalizedJcrPath(context: ContentPackageContext): String {
+        val relative = context.jcrRoot.relativize(toAbsolutePath().normalize())
+        val raw = "/" + relative.iterator().asSequence().joinToString("/") { it.toString() }
+        return (if (raw == "/") raw else raw.replace('\\', '/')).normalizeJcrPath()
+    }
+
+    fun File.toJcrPath(): String? = toPath().let { path ->
+        path.resolveContentPackage()?.let { path.toNormalizedJcrPath(it) }
+    }
+
+    fun VirtualFile.toJcrPath(): String? = Path.of(path).let { path ->
+        path.resolveContentPackage()?.let { path.toNormalizedJcrPath(it) }
+    }
+
+    fun String.toJcrPath(): String? = Path.of(this).let { path ->
+        path.resolveContentPackage()?.let { path.toNormalizedJcrPath(it) }
     }
 
     fun String.normalizeJcrPath(): String {
