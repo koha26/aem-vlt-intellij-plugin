@@ -6,6 +6,8 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.ui.TestDialog
+import com.intellij.openapi.ui.TestDialogManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -14,14 +16,26 @@ import com.intellij.testFramework.unregisterService
 import com.intellij.util.application
 import com.kdiachenko.aem.filevault.integration.dto.DetailedOperationResult
 import com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade
-import com.kdiachenko.aem.filevault.stubs.FileVaultFacadeStub
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterOperationOptions
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterStatus
 import com.kdiachenko.aem.filevault.integration.service.INotificationService
+import com.kdiachenko.aem.filevault.integration.service.IWorkspaceFilterModificationService
+import com.kdiachenko.aem.filevault.integration.service.IWorkspaceFilterService
+import com.kdiachenko.aem.filevault.integration.service.FilterModificationPreview
+import com.kdiachenko.aem.filevault.integration.service.FilterModificationResult
+import com.kdiachenko.aem.filevault.integration.service.FilterModificationStatus
 import com.kdiachenko.aem.filevault.stubs.NotificationEntry
 import com.kdiachenko.aem.filevault.stubs.NotificationServiceStub
+import com.kdiachenko.aem.filevault.stubs.FileVaultFacadeStub
+import com.kdiachenko.aem.filevault.stubs.WorkspaceFilterModificationServiceStub
+import com.kdiachenko.aem.filevault.stubs.WorkspaceFilterServiceStub
 import com.kdiachenko.aem.filevault.model.AEMServerConfig
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.settings.AEMServerSettings
+import com.kdiachenko.aem.filevault.util.JcrPathUtil.resolveContentPackage
+import com.kdiachenko.aem.filevault.util.JcrPathUtil.toNormalizedJcrPath
 import java.io.File
+import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 
 class PushActionTest : BasePlatformTestCase() {
@@ -43,6 +57,14 @@ class PushActionTest : BasePlatformTestCase() {
         setupFileVaultFacade()
         setupServerSettings()
         pushAction = PushAction()
+    }
+
+    override fun tearDown() {
+        try {
+            TestDialogManager.setTestDialog(TestDialog.DEFAULT)
+        } finally {
+            super.tearDown()
+        }
     }
 
     fun testIcon() {
@@ -228,6 +250,71 @@ class PushActionTest : BasePlatformTestCase() {
         assertFalse(action.presentation.isEnabledAndVisible)
     }
 
+    fun testUpdateDoesNotEvaluateFilter() {
+        setupTestFiles()
+        val filterStub = setupWorkspaceFilterService(WorkspaceFilterStatus.FULLY_INCLUDED)
+        val event = createAnActionEvent()
+
+        pushAction.update(event)
+
+        assertTrue(event.presentation.isEnabledAndVisible)
+        assertEquals(0, filterStub.evaluateCalls.size)
+    }
+
+    fun testBlockedPreflightDoesNotCallFacade() {
+        setupTestFiles()
+        setupWorkspaceFilterService(WorkspaceFilterStatus.OUTSIDE_FILTER)
+        setupWorkspaceFilterModificationService()
+        TestDialogManager.setTestDialog { 1 }
+
+        pushAction.actionPerformed(createAnActionEvent())
+        PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
+
+        assertTrue(fileVaultFacadeStub.importedFiles.isEmpty())
+    }
+
+    fun testBlockedPreflightCanAddSelectionToFilter() {
+        val notifications = setupNotificationService()
+        setupTestFiles()
+        setupWorkspaceFilterService(WorkspaceFilterStatus.OUTSIDE_FILTER)
+        val modification = setupWorkspaceFilterModificationService()
+        TestDialogManager.setTestDialog { 0 }
+
+        pushAction.actionPerformed(createAnActionEvent())
+        PlatformTestUtil.waitWhileBusy { modification.appliedPreviews.isEmpty() && notifications.info.isEmpty() }
+
+        assertTrue(fileVaultFacadeStub.importedFiles.isEmpty())
+        assertEquals(1, modification.inspectSelections.size)
+        assertEquals(1, modification.appliedPreviews.size)
+        assertEquals(
+            listOf(NotificationEntry("FileVault Filter Updated", "Added /content/project/en")),
+            notifications.info,
+        )
+    }
+
+    fun testPartialCancelDoesNotCallFacade() {
+        setupTestFiles()
+        setupWorkspaceFilterService(WorkspaceFilterStatus.PARTIALLY_INCLUDED)
+        TestDialogManager.setTestDialog { 1 }
+
+        pushAction.actionPerformed(createAnActionEvent())
+        PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
+
+        assertTrue(fileVaultFacadeStub.importedFiles.isEmpty())
+    }
+
+    fun testPartialContinuePassesApprovalAndFingerprint() {
+        setupTestFiles()
+        val filter = setupWorkspaceFilterService(WorkspaceFilterStatus.PARTIALLY_INCLUDED, "abc123")
+        TestDialogManager.setTestDialog { 0 }
+
+        pushAction.actionPerformed(createAnActionEvent())
+        PlatformTestUtil.waitWhileBusy { fileVaultFacadeStub.importedOptions.isEmpty() }
+
+        assertEquals(WorkspaceFilterOperationOptions(true, "abc123"), fileVaultFacadeStub.importedOptions.single())
+        assertEquals(1, filter.evaluateCalls.size)
+    }
+
     fun testSuccessNotification() {
         val notificationServiceStub = setupNotificationService()
         setupTestFiles()
@@ -278,7 +365,8 @@ class PushActionTest : BasePlatformTestCase() {
             override fun importContent(
                 serverConfig: DetailedAEMServerConfig,
                 projectLocalFile: File,
-                indicator: ProgressIndicator
+                indicator: ProgressIndicator,
+                options: WorkspaceFilterOperationOptions,
             ): CompletableFuture<DetailedOperationResult> {
                 return CompletableFuture.supplyAsync {
                     DetailedOperationResult(false, "Failure message", listOf())
@@ -307,12 +395,51 @@ class PushActionTest : BasePlatformTestCase() {
         application.registerServiceInstance(AEMServerSettings::class.java, serverSettings)
     }
 
+    private fun setupWorkspaceFilterService(
+        status: WorkspaceFilterStatus,
+        filterFingerprint: String? = "fingerprint",
+    ): WorkspaceFilterServiceStub {
+        val stub = WorkspaceFilterServiceStub()
+        val selection = Path.of(myFixture.file.virtualFile.path)
+        when (status) {
+            WorkspaceFilterStatus.FULLY_INCLUDED,
+            WorkspaceFilterStatus.PARTIALLY_INCLUDED -> stub.allow(selection, status, filterFingerprint)
+            else -> stub.blockWith(status, selection)
+        }
+        application.unregisterService(IWorkspaceFilterService::class.java)
+        application.registerServiceInstance(IWorkspaceFilterService::class.java, stub)
+        return stub
+    }
+
+    private fun setupWorkspaceFilterModificationService(): WorkspaceFilterModificationServiceStub {
+        val stub = WorkspaceFilterModificationServiceStub()
+        val selection = myFixture.file.virtualFile
+        val selectionPath = Path.of(selection.path)
+        val context = requireNotNull(selectionPath.resolveContentPackage())
+        stub.inspectResult = FilterModificationPreview(
+            status = FilterModificationStatus.ADDED,
+            selection = selection,
+            context = context,
+            jcrPath = selectionPath.toNormalizedJcrPath(context),
+            filterFingerprint = "fingerprint",
+            message = "Add /content/project/en to filter.xml.",
+        )
+        stub.applyResult = FilterModificationResult(
+            status = FilterModificationStatus.ADDED,
+            filterFile = null,
+            message = "Added /content/project/en",
+        )
+        project.registerServiceInstance(IWorkspaceFilterModificationService::class.java, stub)
+        return stub
+    }
+
     private fun setupTestFiles() {
         myFixture.copyDirectoryToProject(
             "common/en",
             "content/jcr_root/content/project/en"
         )
         myFixture.configureByFile("content/jcr_root/content/project/en/.content.xml")
+        setupWorkspaceFilterService(WorkspaceFilterStatus.FULLY_INCLUDED)
     }
 
     fun createAnActionEvent(): AnActionEvent =

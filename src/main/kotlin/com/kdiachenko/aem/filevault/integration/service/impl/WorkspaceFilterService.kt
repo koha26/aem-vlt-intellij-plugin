@@ -1,6 +1,7 @@
 package com.kdiachenko.aem.filevault.integration.service.impl
 
 import com.intellij.openapi.components.service
+import com.intellij.openapi.diagnostic.Logger
 import com.kdiachenko.aem.filevault.integration.filter.ContentPackageContext
 import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterBlockedException
 import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterExecutionScope
@@ -19,7 +20,13 @@ import java.nio.file.Path
 import java.security.MessageDigest
 import java.util.regex.Pattern
 
+internal fun WorkspaceFilterValidationResult.debugSummary(): String =
+    "status=$status local=$selectedLocalPath jcr=$selectedJcrPath filter=$filterFile " +
+        "matchingRoots=$matchingFilterRoots effectiveRoots=$effectiveFilterRoots " +
+        "fingerprint=${filterFingerprint?.take(12)}"
+
 class WorkspaceFilterService : IWorkspaceFilterService {
+    private val logger = Logger.getInstance(WorkspaceFilterService::class.java)
 
     companion object {
         @JvmStatic
@@ -27,26 +34,29 @@ class WorkspaceFilterService : IWorkspaceFilterService {
     }
 
     override fun evaluate(selection: Path): WorkspaceFilterValidationResult {
+        fun done(result: WorkspaceFilterValidationResult): WorkspaceFilterValidationResult = result.also {
+            logger.debug(it.debugSummary())
+        }
         val absolute = selection.toAbsolutePath().normalize()
         val context = absolute.resolveContentPackage()
-            ?: return blocked(
+            ?: return done(blocked(
                 status = WorkspaceFilterStatus.NOT_IN_CONTENT_PACKAGE,
                 selected = absolute,
                 jcrPath = null,
                 context = null,
                 message = "Selection is not under jcr_root.",
                 addApplicable = false,
-            )
+            ))
         val jcrPath = absolute.toNormalizedJcrPath(context)
         if (!Files.exists(context.filterFile)) {
-            return blocked(
+            return done(blocked(
                 status = WorkspaceFilterStatus.FILTER_NOT_FOUND,
                 selected = absolute,
                 jcrPath = jcrPath,
                 context = context,
                 message = "This content package has no META-INF/vault/filter.xml.",
                 addApplicable = true,
-            )
+            ))
         }
 
         val bytes = Files.readAllBytes(context.filterFile)
@@ -56,7 +66,8 @@ class WorkspaceFilterService : IWorkspaceFilterService {
                 load(ByteArrayInputStream(bytes))
             }
         } catch (e: Exception) {
-            return blocked(
+            logger.info("Failed to parse FileVault filter ${context.filterFile}: ${e.javaClass.simpleName}: ${e.message}")
+            return done(blocked(
                 status = WorkspaceFilterStatus.FILTER_INVALID,
                 selected = absolute,
                 jcrPath = jcrPath,
@@ -64,14 +75,14 @@ class WorkspaceFilterService : IWorkspaceFilterService {
                 message = "filter.xml is invalid: ${e.message ?: e.javaClass.simpleName}",
                 addApplicable = false,
                 fingerprint = fingerprint,
-            )
+            ))
         }
 
         val related = filter.filterSets.filter { set ->
             set.covers(jcrPath) || set.isAncestor(jcrPath)
         }
         if (filter.filterSets.isEmpty()) {
-            return blocked(
+            return done(blocked(
                 status = WorkspaceFilterStatus.FILTER_EMPTY,
                 selected = absolute,
                 jcrPath = jcrPath,
@@ -79,10 +90,10 @@ class WorkspaceFilterService : IWorkspaceFilterService {
                 message = "The workspace filter has no filter roots.",
                 addApplicable = true,
                 fingerprint = fingerprint,
-            )
+            ))
         }
         if (related.isEmpty()) {
-            return blocked(
+            return done(blocked(
                 status = WorkspaceFilterStatus.OUTSIDE_FILTER,
                 selected = absolute,
                 jcrPath = jcrPath,
@@ -90,7 +101,7 @@ class WorkspaceFilterService : IWorkspaceFilterService {
                 message = "$jcrPath is outside the workspace filter.",
                 addApplicable = true,
                 fingerprint = fingerprint,
-            )
+            ))
         }
 
         val isDirectory = Files.isDirectory(absolute)
@@ -109,7 +120,7 @@ class WorkspaceFilterService : IWorkspaceFilterService {
             else -> WorkspaceFilterStatus.EXCLUDED
         }
 
-        return WorkspaceFilterValidationResult(
+        return done(WorkspaceFilterValidationResult(
             status = status,
             selectedLocalPath = absolute,
             selectedJcrPath = jcrPath,
@@ -120,7 +131,7 @@ class WorkspaceFilterService : IWorkspaceFilterService {
             filterFingerprint = fingerprint,
             message = message(status, jcrPath, related.map { it.root }),
             addToFilterApplicable = status != WorkspaceFilterStatus.FULLY_INCLUDED,
-        )
+        ))
     }
 
     override fun executionScope(
@@ -131,13 +142,13 @@ class WorkspaceFilterService : IWorkspaceFilterService {
         if (options.expectedFilterFingerprint != null &&
             options.expectedFilterFingerprint != validation.filterFingerprint
         ) {
-            throw WorkspaceFilterBlockedException(
-                validation.copy(
-                    status = WorkspaceFilterStatus.FILTER_CHANGED,
-                    message = "filter.xml changed after validation. Run the operation again.",
-                    addToFilterApplicable = false,
-                ),
+            val changed = validation.copy(
+                status = WorkspaceFilterStatus.FILTER_CHANGED,
+                message = "filter.xml changed after validation. Run the operation again.",
+                addToFilterApplicable = false,
             )
+            logger.debug(changed.debugSummary())
+            throw WorkspaceFilterBlockedException(changed)
         }
         val executable = validation.status == WorkspaceFilterStatus.FULLY_INCLUDED ||
             (validation.status == WorkspaceFilterStatus.PARTIALLY_INCLUDED && options.partialScopeApproved)

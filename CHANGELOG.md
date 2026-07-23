@@ -2,6 +2,11 @@
 
 # AEM VLT IntelliJ Plugin Changelog
 
+## [Unreleased]
+### Added
+- Filter-aware Push and Pull preflight based on the nearest content package `META-INF/vault/filter.xml`
+- Add to FileVault Filter action for creating or extending package filter roots with undo support
+
 ## [1.0.4]
 [1.0.4]: https://github.com/koha26/aem-vlt-intellij-plugin/tree/v1.0.4
 ### Fixed

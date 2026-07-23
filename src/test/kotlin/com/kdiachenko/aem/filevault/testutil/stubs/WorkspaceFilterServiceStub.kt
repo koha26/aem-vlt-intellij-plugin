@@ -23,6 +23,22 @@ class WorkspaceFilterServiceStub : IWorkspaceFilterService {
         validation = value.validation
     }
 
+    fun allow(
+        selection: Path,
+        status: WorkspaceFilterStatus = WorkspaceFilterStatus.FULLY_INCLUDED,
+        filterFingerprint: String? = "fingerprint",
+        message: String = if (status == WorkspaceFilterStatus.PARTIALLY_INCLUDED) "Partially included" else "Included",
+    ) {
+        val value = defaultScopeFor(selection)
+        val configuredValidation = value.validation.copy(
+            status = status,
+            filterFingerprint = filterFingerprint,
+            message = message,
+            addToFilterApplicable = status != WorkspaceFilterStatus.FULLY_INCLUDED,
+        )
+        allow(value.copy(validation = configuredValidation))
+    }
+
     fun blockWith(status: WorkspaceFilterStatus, selection: Path) {
         scope = null
         validation = WorkspaceFilterValidationResult(

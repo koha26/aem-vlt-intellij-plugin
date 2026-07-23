@@ -64,6 +64,14 @@ This plugin relies on the Apache Jackrabbit File Vault library to handle content
 2. Select `AEM VLT` → `Pull from AEM (Default)`
 3. If multiple servers are configured, select the source server
 4. The plugin will pull the content from the corresponding path in AEM
+
+### FileVault workspace filters
+
+Push and Pull use the nearest content package's `META-INF/vault/filter.xml`.
+Operations outside the filter, or packages with missing/invalid filters, are blocked before AEM is contacted.
+Selecting a directory that is only partly covered shows the effective roots and requires confirmation.
+
+Use **AEM VLT | Add to FileVault Filter** on an item below `jcr_root` to create or extend the package filter. The edit is undoable.
 <!-- Plugin description end -->
 
 ## 🤝 Contributing

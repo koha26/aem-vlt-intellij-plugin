@@ -6,8 +6,12 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import com.kdiachenko.aem.filevault.integration.facade.impl.FileVaultFacade
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterOperationOptions
 import com.kdiachenko.aem.filevault.integration.service.impl.NotificationService
+import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 
 /**
  * Action to push content to AEM repository
@@ -22,13 +26,25 @@ class PushAction : BaseOperationAction() {
         val virtualFile = getSelectedFile(e) ?: return
         val server = getDefaultServer(project) ?: return
 
+        preflight(project, virtualFile, "push") { options ->
+            executePush(project, virtualFile, server, options)
+        }
+    }
+
+    private fun executePush(
+        project: Project,
+        virtualFile: VirtualFile,
+        server: DetailedAEMServerConfig,
+        options: WorkspaceFilterOperationOptions,
+    ) {
         val fileVaultService = FileVaultFacade.getInstance(project)
         val file = virtualToIoFile(virtualFile)
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Pushing to AEM", false) {
             override fun run(indicator: ProgressIndicator) {
+                indicator.checkCanceled()
                 indicator.isIndeterminate = false
-                val result = fileVaultService.importContent(server, file, indicator)
+                val result = fileVaultService.importContent(server, file, indicator, options)
                 val operationResult = result.get()
 
                 ApplicationManager.getApplication().invokeLater {
@@ -43,5 +59,4 @@ class PushAction : BaseOperationAction() {
             }
         })
     }
-
 }

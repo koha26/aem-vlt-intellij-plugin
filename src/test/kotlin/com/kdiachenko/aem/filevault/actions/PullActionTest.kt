@@ -2,6 +2,8 @@ package com.kdiachenko.aem.filevault.actions
 
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.ui.TestDialog
+import com.intellij.openapi.ui.TestDialogManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -10,14 +12,19 @@ import com.intellij.testFramework.unregisterService
 import com.intellij.util.application
 import com.kdiachenko.aem.filevault.integration.dto.DetailedOperationResult
 import com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterOperationOptions
+import com.kdiachenko.aem.filevault.integration.filter.WorkspaceFilterStatus
 import com.kdiachenko.aem.filevault.integration.service.INotificationService
+import com.kdiachenko.aem.filevault.integration.service.IWorkspaceFilterService
 import com.kdiachenko.aem.filevault.model.AEMServerConfig
 import com.kdiachenko.aem.filevault.model.DetailedAEMServerConfig
 import com.kdiachenko.aem.filevault.settings.AEMServerSettings
 import com.kdiachenko.aem.filevault.stubs.FileVaultFacadeStub
 import com.kdiachenko.aem.filevault.stubs.NotificationEntry
 import com.kdiachenko.aem.filevault.stubs.NotificationServiceStub
+import com.kdiachenko.aem.filevault.stubs.WorkspaceFilterServiceStub
 import java.io.File
+import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 
 class PullActionTest : BasePlatformTestCase() {
@@ -38,6 +45,14 @@ class PullActionTest : BasePlatformTestCase() {
         setupFileVaultFacade()
         setupServerSettings()
         pullAction = PullAction()
+    }
+
+    override fun tearDown() {
+        try {
+            TestDialogManager.setTestDialog(TestDialog.DEFAULT)
+        } finally {
+            super.tearDown()
+        }
     }
 
     fun testIcon() {
@@ -223,6 +238,51 @@ class PullActionTest : BasePlatformTestCase() {
         assertFalse(action.presentation.isEnabledAndVisible)
     }
 
+    fun testUpdateDoesNotEvaluateFilter() {
+        setupTestFiles()
+        val filterStub = setupWorkspaceFilterService(WorkspaceFilterStatus.FULLY_INCLUDED)
+        val event = createAnActionEvent()
+
+        pullAction.update(event)
+
+        assertTrue(event.presentation.isEnabledAndVisible)
+        assertEquals(0, filterStub.evaluateCalls.size)
+    }
+
+    fun testBlockedPreflightDoesNotCallFacade() {
+        setupTestFiles()
+        setupWorkspaceFilterService(WorkspaceFilterStatus.OUTSIDE_FILTER)
+        TestDialogManager.setTestDialog { 1 }
+
+        pullAction.actionPerformed(createAnActionEvent())
+        PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
+
+        assertTrue(fileVaultFacadeStub.exportedFiles.isEmpty())
+    }
+
+    fun testPartialCancelDoesNotCallFacade() {
+        setupTestFiles()
+        setupWorkspaceFilterService(WorkspaceFilterStatus.PARTIALLY_INCLUDED)
+        TestDialogManager.setTestDialog { 1 }
+
+        pullAction.actionPerformed(createAnActionEvent())
+        PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
+
+        assertTrue(fileVaultFacadeStub.exportedFiles.isEmpty())
+    }
+
+    fun testPartialContinuePassesApprovalAndFingerprint() {
+        setupTestFiles()
+        val filter = setupWorkspaceFilterService(WorkspaceFilterStatus.PARTIALLY_INCLUDED, "abc123")
+        TestDialogManager.setTestDialog { 0 }
+
+        pullAction.actionPerformed(createAnActionEvent())
+        PlatformTestUtil.waitWhileBusy { fileVaultFacadeStub.exportedOptions.isEmpty() }
+
+        assertEquals(WorkspaceFilterOperationOptions(true, "abc123"), fileVaultFacadeStub.exportedOptions.single())
+        assertEquals(1, filter.evaluateCalls.size)
+    }
+
     fun testSuccessNotification() {
         val notificationServiceStub = setupNotificationService()
         setupTestFiles()
@@ -273,7 +333,8 @@ class PullActionTest : BasePlatformTestCase() {
             override fun exportContent(
                 serverConfig: DetailedAEMServerConfig,
                 projectLocalFile: File,
-                indicator: ProgressIndicator
+                indicator: ProgressIndicator,
+                options: WorkspaceFilterOperationOptions,
             ): CompletableFuture<DetailedOperationResult> {
                 return CompletableFuture.supplyAsync {
                     DetailedOperationResult(false, "Failure message", listOf())
@@ -302,12 +363,29 @@ class PullActionTest : BasePlatformTestCase() {
         application.registerServiceInstance(AEMServerSettings::class.java, serverSettings)
     }
 
+    private fun setupWorkspaceFilterService(
+        status: WorkspaceFilterStatus,
+        filterFingerprint: String? = "fingerprint",
+    ): WorkspaceFilterServiceStub {
+        val stub = WorkspaceFilterServiceStub()
+        val selection = Path.of(myFixture.file.virtualFile.path)
+        when (status) {
+            WorkspaceFilterStatus.FULLY_INCLUDED,
+            WorkspaceFilterStatus.PARTIALLY_INCLUDED -> stub.allow(selection, status, filterFingerprint)
+            else -> stub.blockWith(status, selection)
+        }
+        application.unregisterService(IWorkspaceFilterService::class.java)
+        application.registerServiceInstance(IWorkspaceFilterService::class.java, stub)
+        return stub
+    }
+
     private fun setupTestFiles() {
         myFixture.copyDirectoryToProject(
             "common/en",
             "content/jcr_root/content/project/en"
         )
         myFixture.configureByFile("content/jcr_root/content/project/en/.content.xml")
+        setupWorkspaceFilterService(WorkspaceFilterStatus.FULLY_INCLUDED)
     }
 
     fun createAnActionEvent(): AnActionEvent =

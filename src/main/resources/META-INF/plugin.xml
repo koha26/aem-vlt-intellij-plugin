@@ -8,6 +8,7 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
+    <depends>com.intellij.modules.xml</depends>
 
     <resource-bundle>messages.texts</resource-bundle>
 
@@ -25,6 +26,8 @@
                         serviceInterface="com.kdiachenko.aem.filevault.integration.facade.IFileVaultFacade"/>
         <projectService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.NotificationService"
                         serviceInterface="com.kdiachenko.aem.filevault.integration.service.INotificationService"/>
+        <projectService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.WorkspaceFilterModificationService"
+                        serviceInterface="com.kdiachenko.aem.filevault.integration.service.IWorkspaceFilterModificationService"/>
         <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.FileSystemService"
                         serviceInterface="com.kdiachenko.aem.filevault.integration.service.IFileSystemService"/>
         <applicationService serviceImplementation="com.kdiachenko.aem.filevault.integration.service.impl.MetaInfService"
@@ -53,6 +56,10 @@
                popup="true">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="ProjectViewPopupMenuRefactoringGroup"/>
             <separator/>
+            <action id="AEMVLT.AddToFileVaultFilterAction"
+                    class="com.kdiachenko.aem.filevault.actions.AddToFileVaultFilterAction"
+                    text="Add to FileVault Filter"
+                    description="Add the selected JCR path to this content package's filter.xml"/>
             <action id="AEMVLT.PullAction"
                     class="com.kdiachenko.aem.filevault.actions.PullAction"
                     text="Pull from AEM (Default)"
